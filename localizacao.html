@@ -1,0 +1,361 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Onde estamos agora</title>
+
+<!-- ================================================================= -->
+<!--  1) COLE AQUI A CONFIGURAÇÃO DO SEU FIREBASE                       -->
+<!--     (pegue no console do Firebase > Configurações do projeto)     -->
+<!--     Enquanto estiver como está, a página roda em MODO DEMONSTRAÇÃO -->
+<!-- ================================================================= -->
+<script>
+  const firebaseConfig = {
+    apiKey: "AIzaSyAiFCxw0hM97dDyckuzivqFNz-fVAR6wEU",
+    authDomain: "localizador-caldeirao.firebaseapp.com",
+    databaseURL: "https://localizador-caldeirao-default-rtdb.firebaseio.com",
+    projectId: "localizador-caldeirao",
+    appId: "1:20299239398:web:72702831c5bef0907f5027"
+  };
+
+  // ---- Ajuste rápido ----
+  const NEGOCIO   = "Caldeirão Nordestino";   // nome que aparece no topo
+  const NODE      = "carrinho";            // onde a localização fica salva
+  const SENHA_PAINEL = "1234";             // TROQUE. É a senha do seu painel
+  const PONTO_DEMO = { lat: -7.9265, lng: -34.8255 }; // usado só no modo demo
+</script>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Nunito+Sans:opsz,wght@6..12,400;6..12,600;6..12,700;6..12,800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+
+<style>
+  :root{
+    --mar:#0B3B54;        /* petróleo, texto/estrutura */
+    --agua:#16B8A6;       /* turquesa, aberto */
+    --sol:#FF8C2B;        /* laranja-manga, ação */
+    --sol-esc:#F2760D;
+    --coral:#FF5A5F;      /* fechado/alerta */
+    --areia:#FDF3E3;      /* fundo */
+    --areia-2:#FFFBF3;    /* cartão */
+    --sombra:0 10px 30px rgba(11,59,84,.14);
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;height:100%}
+  body{
+    font-family:"Nunito Sans",system-ui,sans-serif;
+    color:var(--mar); background:var(--areia);
+    display:flex; flex-direction:column; min-height:100dvh;
+  }
+
+  /* ---------- Cabeçalho ---------- */
+  header{
+    padding:16px 18px 12px; display:flex; align-items:center; gap:12px;
+    background:linear-gradient(180deg,var(--areia-2),var(--areia));
+  }
+  .marca{font-family:"Baloo 2",sans-serif;font-weight:800;font-size:22px;line-height:1;letter-spacing:-.3px}
+  .marca small{display:block;font-family:"Nunito Sans";font-weight:700;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#7c8a92;margin-top:4px}
+  .pill{
+    margin-left:auto; display:inline-flex; align-items:center; gap:8px;
+    font-weight:800; font-size:14px; padding:9px 14px; border-radius:999px;
+    background:#e9f7f4; color:#0a7d70;
+  }
+  .pill .dot{width:9px;height:9px;border-radius:50%;background:var(--agua);box-shadow:0 0 0 0 rgba(22,184,166,.6);animation:beat 1.8s infinite}
+  .pill.off{background:#fdecec;color:#c0353a}
+  .pill.off .dot{background:var(--coral);animation:none;box-shadow:none}
+  @keyframes beat{0%{box-shadow:0 0 0 0 rgba(22,184,166,.55)}70%{box-shadow:0 0 0 10px rgba(22,184,166,0)}100%{box-shadow:0 0 0 0 rgba(22,184,166,0)}}
+
+  /* ---------- Mapa (herói) ---------- */
+  .mapa-wrap{position:relative;flex:1;margin:6px 14px 0;border-radius:22px;overflow:hidden;box-shadow:var(--sombra)}
+  #mapa{position:absolute;inset:0}
+  .faixa{
+    position:absolute;left:12px;right:12px;top:12px;z-index:500;
+    background:rgba(255,251,243,.94);backdrop-filter:blur(4px);
+    border-radius:14px;padding:11px 14px;box-shadow:var(--sombra);
+    font-weight:700;font-size:14px;display:flex;align-items:center;gap:10px
+  }
+  .faixa b{font-family:"Baloo 2";font-weight:800}
+  .faixa .quando{margin-left:auto;font-size:12px;color:#7c8a92;font-weight:700;white-space:nowrap}
+
+  /* beacon do carrinho */
+  .beacon{position:relative;width:26px;height:26px}
+  .beacon .core{position:absolute;inset:6px;background:var(--sol);border:3px solid #fff;border-radius:50%;box-shadow:0 2px 6px rgba(0,0,0,.3)}
+  .beacon .ping{position:absolute;inset:0;border-radius:50%;background:rgba(255,140,43,.45);animation:ping 1.9s ease-out infinite}
+  @keyframes ping{0%{transform:scale(.4);opacity:.8}100%{transform:scale(2.6);opacity:0}}
+
+  /* ---------- Rodapé ---------- */
+  .base{padding:14px}
+  .recado{
+    background:var(--areia-2);border-radius:16px;padding:14px 16px;margin-bottom:12px;
+    box-shadow:var(--sombra);font-weight:600;font-size:15px;display:none
+  }
+  .recado.show{display:block}
+  .recado b{font-family:"Baloo 2";display:block;font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--sol-esc);margin-bottom:4px}
+  .btn{
+    display:flex;align-items:center;justify-content:center;gap:10px;width:100%;
+    border:0;cursor:pointer;font-family:"Baloo 2";font-weight:800;font-size:19px;color:#fff;
+    background:var(--sol);padding:17px;border-radius:16px;box-shadow:0 8px 20px rgba(242,118,13,.35);
+    transition:transform .06s ease, background .2s
+  }
+  .btn:active{transform:translateY(2px)}
+  .btn:disabled{background:#cdd6da;box-shadow:none;cursor:not-allowed}
+  .btn .ico{font-size:22px;line-height:1}
+
+  .fechado-msg{text-align:center;color:#7c8a92;font-weight:700;padding:8px 0 2px;display:none}
+  .fechado-msg.show{display:block}
+
+  /* ---------- Painel admin ---------- */
+  #painel{position:fixed;inset:0;background:var(--mar);color:#fff;z-index:9999;display:none;flex-direction:column;padding:22px}
+  #painel.show{display:flex}
+  #painel h1{font-family:"Baloo 2";font-size:26px;margin:6px 0 2px}
+  #painel .sub{color:#9fc0cf;font-weight:600;margin-bottom:18px}
+  .card{background:rgba(255,255,255,.08);border-radius:16px;padding:16px;margin-bottom:14px}
+  .card label{display:block;font-weight:800;font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:#bcd6e0;margin-bottom:8px}
+  .big{width:100%;border:0;border-radius:14px;padding:18px;font-family:"Baloo 2";font-weight:800;font-size:20px;color:#fff;cursor:pointer;background:var(--agua)}
+  .big.laranja{background:var(--sol)}
+  .big.vermelho{background:var(--coral)}
+  .row2{display:flex;gap:10px}
+  .row2 .big{flex:1;font-size:17px;padding:15px}
+  .toggle{display:flex;align-items:center;justify-content:space-between;gap:12px}
+  .switch{position:relative;width:58px;height:32px;flex:none}
+  .switch input{opacity:0;width:0;height:0}
+  .slider{position:absolute;inset:0;background:#3a5a6b;border-radius:999px;transition:.2s;cursor:pointer}
+  .slider:before{content:"";position:absolute;height:24px;width:24px;left:4px;top:4px;background:#fff;border-radius:50%;transition:.2s}
+  .switch input:checked + .slider{background:var(--agua)}
+  .switch input:checked + .slider:before{transform:translateX(26px)}
+  #painel input[type=text]{width:100%;border:0;border-radius:12px;padding:14px;font-size:16px;font-family:inherit;font-weight:600}
+  .status{font-weight:700;font-size:14px;color:#bcd6e0;min-height:20px;margin-top:8px}
+  .senha-box{margin:auto;max-width:320px;text-align:center}
+  .senha-box input{text-align:center;letter-spacing:.4em;font-size:22px;margin:14px 0}
+  .sair{background:none;border:0;color:#9fc0cf;font-weight:800;font-size:15px;cursor:pointer;padding:10px;margin-top:auto}
+
+  .demo{position:fixed;bottom:0;left:0;right:0;background:var(--mar);color:#ffd9a8;font-weight:700;font-size:12px;text-align:center;padding:8px;z-index:5000;display:none}
+  @media (prefers-reduced-motion:reduce){.pill .dot,.beacon .ping{animation:none}}
+</style>
+</head>
+<body>
+
+<!-- ===================== VISÃO PÚBLICA ===================== -->
+<header>
+  <div class="marca" id="nomeNeg">Carrinho<small>estamos na praia</small></div>
+  <span class="pill" id="pill"><span class="dot"></span><span id="pillTxt">Carregando…</span></span>
+</header>
+
+<div class="mapa-wrap">
+  <div id="mapa"></div>
+  <div class="faixa">
+    <span id="faixaTxt"><b>Procurando o carrinho…</b></span>
+    <span class="quando" id="quando"></span>
+  </div>
+</div>
+
+<div class="base">
+  <div class="recado" id="recadoBox"><b>Recado</b><span id="recadoTxt"></span></div>
+  <button class="btn" id="btnRota" disabled><span class="ico">🧭</span> Como chegar</button>
+  <div class="fechado-msg" id="fechadoMsg">O carrinho está fechado agora. Volte mais tarde 🙂</div>
+</div>
+
+<!-- ===================== PAINEL (dono) ===================== -->
+<div id="painel">
+  <div class="senha-box" id="senhaBox">
+    <h1>Painel do carrinho</h1>
+    <div class="sub">Digite sua senha</div>
+    <input type="password" id="senhaInput" inputmode="numeric" placeholder="••••">
+    <button class="big laranja" id="btnEntrar">Entrar</button>
+    <div class="status" id="senhaErro"></div>
+  </div>
+
+  <div id="painelInterno" style="display:none;flex-direction:column;flex:1">
+    <h1>Painel do carrinho</h1>
+    <div class="sub" id="painelSub">—</div>
+
+    <div class="card">
+      <label>Onde você está</label>
+      <button class="big" id="btnLocal">📍 Atualizar minha localização</button>
+      <div class="toggle" style="margin-top:14px">
+        <span style="font-weight:700">Modo ao vivo (atualiza sozinho enquanto você anda)</span>
+        <label class="switch"><input type="checkbox" id="aoVivo"><span class="slider"></span></label>
+      </div>
+      <div class="status" id="localStatus"></div>
+    </div>
+
+    <div class="card">
+      <label>Estou</label>
+      <div class="row2">
+        <button class="big" id="btnAberto">🟢 Aberto</button>
+        <button class="big vermelho" id="btnFechado">🔴 Fechado</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <label>Recado para o cliente (opcional)</label>
+      <input type="text" id="recadoIn" placeholder="Ex: perto do quiosque, fico até 18h">
+      <button class="big laranja" id="btnRecado" style="margin-top:10px">Salvar recado</button>
+    </div>
+
+    <button class="sair" id="btnSair">Sair do painel</button>
+  </div>
+</div>
+
+<div class="demo" id="demoTag">⚠️ Modo demonstração — cole a configuração do Firebase para funcionar de verdade</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script>
+document.getElementById('nomeNeg').firstChild.textContent = NEGOCIO;
+document.title = NEGOCIO + " — onde estamos";
+
+const DEMO = firebaseConfig.apiKey === "COLE_AQUI";
+let db = null;
+if(!DEMO){
+  firebase.initializeApp(firebaseConfig);
+  db = firebase.database();
+}else{
+  document.getElementById('demoTag').style.display='block';
+}
+
+/* ---------- Mapa ---------- */
+const map = L.map('mapa',{zoomControl:false,attributionControl:false}).setView([PONTO_DEMO.lat,PONTO_DEMO.lng],16);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
+L.control.zoom({position:'bottomright'}).addTo(map);
+const icone = L.divIcon({className:'',html:'<div class="beacon"><div class="ping"></div><div class="core"></div></div>',iconSize:[26,26],iconAnchor:[13,13]});
+let marcador = null;
+let watchId = null;
+const painel = document.getElementById('painel');
+
+/* ---------- Estado atual ---------- */
+let atual = null; // {lat,lng,aberto,recado,atualizadoEm,aoVivo}
+
+function desenha(d){
+  atual = d;
+  const pill = document.getElementById('pill');
+  const pillTxt = document.getElementById('pillTxt');
+  const faixa = document.getElementById('faixaTxt');
+  const quando = document.getElementById('quando');
+  const recadoBox = document.getElementById('recadoBox');
+  const btnRota = document.getElementById('btnRota');
+  const fechadoMsg = document.getElementById('fechadoMsg');
+
+  if(!d || d.lat==null){
+    pill.className='pill off'; pillTxt.textContent='Sem sinal';
+    faixa.innerHTML='<b>Ainda não sabemos onde o carrinho está hoje</b>';
+    btnRota.disabled=true; return;
+  }
+
+  // marcador
+  if(!marcador){ marcador=L.marker([d.lat,d.lng],{icon:icone}).addTo(map); }
+  else{ marcador.setLatLng([d.lat,d.lng]); }
+  map.setView([d.lat,d.lng], map.getZoom()<15?16:map.getZoom());
+
+  // aberto/fechado
+  if(d.aberto){
+    pill.className='pill'; pillTxt.textContent='Aberto agora';
+    faixa.innerHTML='<b>📍 Estamos aqui agora!</b>';
+    fechadoMsg.classList.remove('show'); btnRota.disabled=false;
+  }else{
+    pill.className='pill off'; pillTxt.textContent='Fechado';
+    faixa.innerHTML='<b>Último ponto do carrinho</b>';
+    fechadoMsg.classList.add('show'); btnRota.disabled=false;
+  }
+
+  // "há quanto tempo"
+  quando.textContent = d.atualizadoEm ? 'atualizado ' + haQuanto(d.atualizadoEm) : '';
+  const velho = d.atualizadoEm && (Date.now()-d.atualizadoEm > 2*3600*1000) && !d.aoVivo;
+  if(velho && d.aberto){ faixa.innerHTML='<b>📍 Estamos aqui</b> <span style="font-weight:700;color:#c0353a">· pode ter mudado</span>'; }
+
+  // recado
+  if(d.recado && d.recado.trim()){ recadoBox.classList.add('show'); document.getElementById('recadoTxt').textContent=d.recado; }
+  else{ recadoBox.classList.remove('show'); }
+
+  // rota
+  btnRota.onclick=()=>window.open('https://www.google.com/maps/dir/?api=1&destination='+d.lat+','+d.lng,'_blank');
+}
+
+function haQuanto(ts){
+  const s=Math.floor((Date.now()-ts)/1000);
+  if(s<60) return 'agora';
+  if(s<3600) return 'há '+Math.floor(s/60)+' min';
+  const h=Math.floor(s/3600); if(h<24) return 'há '+h+'h';
+  return 'há '+Math.floor(h/24)+' dia(s)';
+}
+
+/* ---------- Ouvir em tempo real ---------- */
+if(!DEMO){
+  db.ref(NODE).on('value', s=>{
+    desenha(s.val());
+    // painel aberto + estava ao vivo + ainda não está transmitindo => religa
+    if(painel.classList.contains('show') && document.getElementById('painelInterno').style.display==='flex'
+       && atual && atual.aoVivo && !watchId){
+      document.getElementById('aoVivo').checked=true; pegaLocal(true);
+    }
+  });
+}else{
+  desenha({lat:PONTO_DEMO.lat,lng:PONTO_DEMO.lng,aberto:true,recado:'Exemplo: perto do quiosque azul',atualizadoEm:Date.now()});
+}
+setInterval(()=>{ if(atual&&atual.atualizadoEm) document.getElementById('quando').textContent='atualizado '+haQuanto(atual.atualizadoEm); },30000);
+
+/* ================= PAINEL (dono) ================= */
+const ehDono = ()=> localStorage.getItem('dono')==='sim';
+if(location.hash.replace('#','')==='painel'){
+  painel.classList.add('show');
+  if(ehDono()) abrePainel();   // já entrou antes neste celular: não pede senha
+}
+
+document.getElementById('btnEntrar').onclick=entrar;
+document.getElementById('senhaInput').addEventListener('keydown',e=>{if(e.key==='Enter')entrar();});
+function entrar(){
+  const v=document.getElementById('senhaInput').value;
+  if(v===SENHA_PAINEL){ localStorage.setItem('dono','sim'); abrePainel(); }
+  else{ document.getElementById('senhaErro').textContent='Senha errada'; }
+}
+function abrePainel(){
+  document.getElementById('senhaBox').style.display='none';
+  document.getElementById('painelInterno').style.display='flex';
+  document.getElementById('painelSub').textContent = DEMO ? 'MODO DEMO — nada é salvo' : NEGOCIO;
+  // se estava "ao vivo", religa sozinho ao reabrir
+  if(atual && atual.aoVivo){ document.getElementById('aoVivo').checked=true; pegaLocal(true); }
+}
+document.getElementById('btnSair').onclick=()=>{painel.classList.remove('show');location.hash='';};
+
+function salva(campos){
+  const dados = Object.assign({}, atual||{}, campos, {atualizadoEm:Date.now()});
+  atual=dados;
+  document.getElementById('localStatus').textContent='';
+  if(DEMO){ desenha(dados); toastPainel('Salvo (demo)'); return; }
+  db.ref(NODE).update(dados).then(()=>toastPainel('Salvo ✓')).catch(e=>toastPainel('Erro: '+e.message));
+}
+function toastPainel(t){ document.getElementById('localStatus').textContent=t; }
+
+document.getElementById('btnLocal').onclick=()=>pegaLocal(false);
+document.getElementById('aoVivo').onchange=e=>{
+  if(e.target.checked) pegaLocal(true);
+  else { if(watchId){navigator.geolocation.clearWatch(watchId);watchId=null;} salva({aoVivo:false}); }
+};
+
+function pegaLocal(vivo){
+  if(!navigator.geolocation){ toastPainel('Este aparelho não tem GPS'); return; }
+  toastPainel('Buscando GPS…');
+  const opt={enableHighAccuracy:true,timeout:15000,maximumAge:0};
+  if(vivo){
+    watchId=navigator.geolocation.watchPosition(
+      p=>salva({lat:p.coords.latitude,lng:p.coords.longitude,aberto:true,aoVivo:true}),
+      err=>toastPainel('GPS: '+err.message),opt);
+  }else{
+    navigator.geolocation.getCurrentPosition(
+      p=>salva({lat:p.coords.latitude,lng:p.coords.longitude,aberto:true}),
+      err=>toastPainel('GPS: '+err.message),opt);
+  }
+}
+
+document.getElementById('btnAberto').onclick=()=>salva({aberto:true});
+document.getElementById('btnFechado').onclick=()=>{
+  if(watchId){navigator.geolocation.clearWatch(watchId);watchId=null;document.getElementById('aoVivo').checked=false;}
+  salva({aberto:false,aoVivo:false});
+};
+document.getElementById('btnRecado').onclick=()=>salva({recado:document.getElementById('recadoIn').value});
+</script>
+</body>
+</html>
