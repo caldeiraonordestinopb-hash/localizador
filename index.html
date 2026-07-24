@@ -21,6 +21,7 @@
 
   // ---- Ajuste rápido ----
   const NEGOCIO   = "Caldeirão Nordestino";   // nome que aparece no topo
+  const SLOGAN    = "o melhor caldinho do litoral paraibano"; // aparece ao lado do nome
   const NODE      = "carrinho";            // onde a localização fica salva
   const SENHA_PAINEL = "1234";             // TROQUE. É a senha do seu painel
   const PONTO_DEMO = { lat: -7.9265, lng: -34.8255 }; // usado só no modo demo
@@ -55,7 +56,8 @@
     padding:16px 18px 12px; display:flex; align-items:center; gap:12px;
     background:linear-gradient(180deg,var(--areia-2),var(--areia));
   }
-  .marca{font-family:"Baloo 2",sans-serif;font-weight:800;font-size:22px;line-height:1;letter-spacing:-.3px}
+  .marca{font-family:"Baloo 2",sans-serif;font-weight:800;font-size:22px;line-height:1.15;letter-spacing:-.3px}
+  .marca .tag{font-family:"Nunito Sans";font-weight:700;font-size:13.5px;color:var(--sol-esc);margin-left:7px;letter-spacing:0}
   .marca small{display:block;font-family:"Nunito Sans";font-weight:700;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#7c8a92;margin-top:4px}
   .pill{
     margin-left:auto; display:inline-flex; align-items:center; gap:8px;
@@ -140,7 +142,7 @@
 
 <!-- ===================== VISÃO PÚBLICA ===================== -->
 <header>
-  <div class="marca" id="nomeNeg">Carrinho<small>estamos na praia</small></div>
+  <div class="marca" id="nomeNeg"><span id="nomeTxt">Carrinho</span><span class="tag" id="tagTxt"></span><small>estamos na praia</small></div>
   <span class="pill" id="pill"><span class="dot"></span><span id="pillTxt">Carregando…</span></span>
 </header>
 
@@ -206,7 +208,8 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <script>
-document.getElementById('nomeNeg').firstChild.textContent = NEGOCIO;
+document.getElementById('nomeTxt').textContent = NEGOCIO;
+document.getElementById('tagTxt').textContent = SLOGAN ? '— ' + SLOGAN : '';
 document.title = NEGOCIO + " — onde estamos";
 
 const DEMO = firebaseConfig.apiKey === "COLE_AQUI";
