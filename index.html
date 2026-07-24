@@ -26,6 +26,7 @@
   // ---- Ajuste rápido ----
   const NEGOCIO   = "Caldeirão Nordestino";   // nome que aparece no topo
   const SLOGAN    = "o melhor caldinho do litoral paraibano"; // aparece ao lado do nome
+  const CALDOS_PADRAO = ["Feijoada","Caldeirada","Bobó de Camarão","Caldo de Kenga","Marisco","Abóbora com Carne de Sol"];
   const NODE      = "carrinho";            // onde a localização fica salva
   const SENHA_PAINEL = "1234";             // TROQUE. É a senha do seu painel
   const PONTO_DEMO = { lat: -7.9265, lng: -34.8255 }; // usado só no modo demo
@@ -76,6 +77,16 @@
 
   /* ---------- Mapa (herói) ---------- */
   .mapa-wrap{position:relative;flex:1;margin:6px 14px 0;border-radius:22px;overflow:hidden;box-shadow:var(--sombra)}
+  .cardapio-bolha{position:absolute;left:12px;bottom:12px;z-index:500;max-width:70%;background:var(--areia-2);border-radius:16px;box-shadow:0 8px 22px rgba(11,59,84,.28);overflow:hidden;cursor:pointer;animation:flutua 2.6s ease-in-out infinite;transform-origin:bottom left;display:none}
+  .cardapio-bolha.show{display:block}
+  .cardapio-bolha .cb-tit{background:linear-gradient(180deg,var(--sol),var(--sol-esc));color:#fff;font-family:"Baloo 2";font-weight:800;font-size:14px;padding:9px 13px;display:flex;align-items:center;gap:6px}
+  .cardapio-bolha .cb-seta{margin-left:auto;transition:transform .2s}
+  .cardapio-bolha.min .cb-seta{transform:rotate(-90deg)}
+  .cardapio-bolha ul{list-style:none;margin:0;padding:8px 14px 11px}
+  .cardapio-bolha.min ul{display:none}
+  .cardapio-bolha li{font-weight:700;font-size:13.5px;padding:3px 0 3px 20px;position:relative;color:var(--mar);line-height:1.25}
+  .cardapio-bolha li:before{content:"🍤";position:absolute;left:0;top:3px;font-size:12px}
+  @keyframes flutua{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-4px) scale(1.02)}}
   #mapa{position:absolute;inset:0}
   .faixa{
     position:absolute;left:12px;right:12px;top:12px;z-index:500;
@@ -126,6 +137,16 @@
   .card label{display:block;font-weight:800;font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:#bcd6e0;margin-bottom:8px}
   .big{width:100%;border:0;border-radius:14px;padding:18px;font-family:"Baloo 2";font-weight:800;font-size:20px;color:#fff;cursor:pointer;background:var(--agua)}
   .big.laranja{background:var(--sol)}
+  .caldos{display:flex;flex-direction:column;gap:8px;margin:2px 0 12px}
+  .caldo-row{display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.08);border-radius:12px;padding:11px 12px;cursor:pointer;user-select:none}
+  .caldo-row .chk{width:24px;height:24px;border-radius:7px;border:2px solid rgba(255,255,255,.45);flex:none;display:flex;align-items:center;justify-content:center;font-size:15px;color:#fff}
+  .caldo-row.on{background:rgba(32,177,90,.22)}
+  .caldo-row.on .chk{background:#20B15A;border-color:#20B15A}
+  .caldo-row .nome{flex:1;font-weight:700;font-size:15px}
+  .caldo-row .rm{opacity:.55;font-weight:800;font-size:20px;padding:0 4px;line-height:1}
+  .addrow{display:flex;gap:8px}
+  .addrow input{flex:1;border:0;border-radius:12px;padding:13px;font-size:15px;font-family:inherit;font-weight:600}
+  .addrow button{border:0;background:var(--sol);color:#fff;font-size:24px;font-weight:800;width:52px;border-radius:12px;cursor:pointer}
   .big.azul{background:var(--mar)}
   .big.verde{background:#20B15A}
   .rapidos{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
@@ -148,7 +169,7 @@
   .sair{background:none;border:0;color:#9fc0cf;font-weight:800;font-size:15px;cursor:pointer;padding:10px;margin-top:auto}
 
   .demo{position:fixed;bottom:0;left:0;right:0;background:var(--mar);color:#ffd9a8;font-weight:700;font-size:12px;text-align:center;padding:8px;z-index:5000;display:none}
-  @media (prefers-reduced-motion:reduce){.pill .dot,.beacon .ping{animation:none}}
+  @media (prefers-reduced-motion:reduce){.pill .dot,.beacon .ping,.cardapio-bolha{animation:none}}
 </style>
 </head>
 <body>
@@ -165,6 +186,10 @@
   <div class="faixa">
     <span id="faixaTxt"><b>Procurando o carrinho…</b></span>
     <span class="quando" id="quando"></span>
+  </div>
+  <div class="cardapio-bolha" id="bolha" onclick="this.classList.toggle('min')">
+    <div class="cb-tit">🍲 Caldos do dia <span class="cb-seta">▾</span></div>
+    <ul id="cbLista"></ul>
   </div>
 </div>
 
@@ -203,6 +228,15 @@
       <div class="row2">
         <button class="big" id="btnAberto">🟢 Aberto</button>
         <button class="big vermelho" id="btnFechado">🔴 Fechado</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <label>🍲 Caldos do dia — marque o que tem hoje</label>
+      <div id="listaCaldos" class="caldos"></div>
+      <div class="addrow">
+        <input type="text" id="novoCaldo" placeholder="Adicionar outro caldo…">
+        <button id="btnAddCaldo">+</button>
       </div>
     </div>
 
@@ -252,6 +286,7 @@ const MASCOTE = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAFAAAABnCAYAAACXb
 const icone = L.divIcon({className:'',html:'<div class="beacon"><div class="rumo"><div class="seta"></div></div><div class="ping"></div><img class="mascote" width="44" src="'+MASCOTE+'" alt="" onerror="this.replaceWith(Object.assign(document.createElement(String.fromCharCode(100,105,118)),{className:String.fromCharCode(102,97,108,108,98,97,99,107)}))"></div>',iconSize:[64,64],iconAnchor:[32,60]});
 let marcador = null;
 let watchId = null;
+let dadosOk = false;
 const painel = document.getElementById('painel');
 
 /* ---------- Estado atual ---------- */
@@ -307,8 +342,23 @@ function desenha(d){
   if(d.recado && d.recado.trim()){ recadoBox.classList.add('show'); document.getElementById('recadoTxt').textContent=d.recado; }
   else{ recadoBox.classList.remove('show'); }
 
+  // cardapio (balão)
+  desenhaBolha(d.cardapio);
+  if(painel.classList.contains('show') && document.getElementById('painelInterno').style.display==='flex'){ renderCardapio(); }
+
   // rota
   btnRota.onclick=()=>window.open('https://www.google.com/maps/dir/?api=1&destination='+d.lat+','+d.lng,'_blank');
+}
+
+function desenhaBolha(cardapio){
+  const bolha=document.getElementById('bolha'); if(!bolha) return;
+  const itens=(cardapio&&Array.isArray(cardapio.itens))?cardapio.itens.filter(x=>x&&x.ativo):[];
+  if(!itens.length){ bolha.classList.remove('show'); return; }
+  const tit=bolha.querySelector('.cb-tit');
+  tit.childNodes[0].nodeValue = '🍲 '+((cardapio&&cardapio.titulo)||'Caldos do dia')+' ';
+  const ul=document.getElementById('cbLista');
+  ul.innerHTML=''; itens.forEach(it=>{const li=document.createElement('li');li.textContent=it.nome;ul.appendChild(li);});
+  bolha.classList.add('show');
 }
 
 function haQuanto(ts){
@@ -322,12 +372,14 @@ function haQuanto(ts){
 /* ---------- Ouvir em tempo real ---------- */
 if(!DEMO){
   db.ref(NODE).on('value', s=>{
+    dadosOk=true;
     desenha(s.val());
     // painel aberto + estava ao vivo + ainda não está transmitindo => religa
     if(painel.classList.contains('show') && document.getElementById('painelInterno').style.display==='flex'
        && atual && atual.aoVivo && !watchId){
       document.getElementById('aoVivo').checked=true; pegaLocal(true);
     }
+    talvezSeedCardapio();
   });
 }else{
   desenha({lat:PONTO_DEMO.lat,lng:PONTO_DEMO.lng,aberto:true,recado:'Exemplo: perto do quiosque azul',atualizadoEm:Date.now()});
@@ -355,6 +407,8 @@ function abrePainel(){
   document.getElementById('painelSub').textContent = DEMO ? 'MODO DEMO — nada é salvo' : NEGOCIO;
   // se estava "ao vivo", religa sozinho ao reabrir
   if(atual && atual.aoVivo){ document.getElementById('aoVivo').checked=true; pegaLocal(true); }
+  renderCardapio();
+  talvezSeedCardapio();
 }
 document.getElementById('btnSair').onclick=()=>{painel.classList.remove('show');location.hash='';};
 
@@ -399,6 +453,40 @@ document.getElementById('btnFechado').onclick=()=>{
   salva({aberto:false,aoVivo:false,rumo:null});
 };
 document.getElementById('btnRecado').onclick=()=>salva({recado:document.getElementById('recadoIn').value});
+
+/* ---------- Caldos do dia (painel) ---------- */
+function painelAberto(){ return painel.classList.contains('show') && document.getElementById('painelInterno').style.display==='flex'; }
+function talvezSeedCardapio(){
+  if(DEMO || !dadosOk || !ehDono() || !painelAberto()) return;
+  if(atual && atual.cardapio) return;      // já existe cardápio salvo: não mexe
+  salvaCardapio(caldosAtuais());           // primeira vez: grava os padrões (todos marcados)
+}
+function caldosAtuais(){
+  if(atual && atual.cardapio && Array.isArray(atual.cardapio.itens)) return atual.cardapio.itens.map(x=>({nome:x.nome,ativo:!!x.ativo}));
+  return CALDOS_PADRAO.map(n=>({nome:n,ativo:true}));
+}
+function salvaCardapio(itens){ salva({cardapio:{titulo:'Caldos do dia',itens:itens}}); renderCardapio(); }
+function renderCardapio(){
+  const box=document.getElementById('listaCaldos'); if(!box) return;
+  const itens=caldosAtuais(); box.innerHTML='';
+  itens.forEach((it,i)=>{
+    const row=document.createElement('div'); row.className='caldo-row'+(it.ativo?' on':'');
+    const chk=document.createElement('div'); chk.className='chk'; chk.textContent=it.ativo?'✓':'';
+    const nome=document.createElement('div'); nome.className='nome'; nome.textContent=it.nome;
+    const rm=document.createElement('div'); rm.className='rm'; rm.textContent='×'; rm.title='Remover';
+    row.appendChild(chk); row.appendChild(nome); row.appendChild(rm);
+    row.onclick=(e)=>{ if(e.target===rm) return; itens[i].ativo=!itens[i].ativo; salvaCardapio(itens); };
+    rm.onclick=(e)=>{ e.stopPropagation(); itens.splice(i,1); salvaCardapio(itens); };
+    box.appendChild(row);
+  });
+}
+document.getElementById('btnAddCaldo').onclick=()=>{
+  const inp=document.getElementById('novoCaldo'); const nome=inp.value.trim();
+  if(!nome) return;
+  const itens=caldosAtuais(); itens.push({nome:nome,ativo:true}); inp.value='';
+  salvaCardapio(itens);
+};
+document.getElementById('novoCaldo').addEventListener('keydown',e=>{ if(e.key==='Enter') document.getElementById('btnAddCaldo').click(); });
 
 // Recados rápidos (toque e já preenche o campo)
 const RAPIDOS=["🔥 Chegamos! Caldinho quentinho","🛵 Estamos chegando na praia","⏳ Últimas unidades de hoje","🕕 Ficamos até 18h","😋 Caldinho de camarão fresquinho"];
