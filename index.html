@@ -27,6 +27,7 @@
   const NEGOCIO   = "Caldeirão Nordestino";   // nome que aparece no topo
   const SLOGAN    = "o melhor caldinho do litoral paraibano"; // aparece ao lado do nome
   const CALDOS_PADRAO = ["Feijoada","Caldeirada","Bobó de Camarão","Caldo de Kenga","Marisco","Abóbora com Carne de Sol"];
+  const NHOQUES_PADRAO = ["Bolonhesa","Camarão","Frango","Abóbora com Carne de Sol"];
   const NODE      = "carrinho";            // onde a localização fica salva
   const SENHA_PAINEL = "1234";             // TROQUE. É a senha do seu painel
   const PONTO_DEMO = { lat: -7.9265, lng: -34.8255 }; // usado só no modo demo
@@ -83,10 +84,15 @@
   .cardapio-bolha .cb-tit{background:linear-gradient(180deg,var(--sol),var(--sol-esc));color:#fff;font-family:"Baloo 2";font-weight:800;font-size:14px;padding:9px 13px;display:flex;align-items:center;gap:6px}
   .cardapio-bolha .cb-seta{margin-left:auto;transition:transform .2s}
   .cardapio-bolha.min .cb-seta{transform:rotate(-90deg)}
-  .cardapio-bolha ul{list-style:none;margin:0;padding:8px 14px 11px}
-  .cardapio-bolha.min ul{display:none}
-  .cardapio-bolha li{font-weight:700;font-size:13.5px;padding:3px 0 3px 20px;position:relative;color:var(--mar);line-height:1.25}
-  .cardapio-bolha li:before{content:"🍤";position:absolute;left:0;top:3px;font-size:12px}
+  .cardapio-bolha .cb-body{padding:6px 14px 11px}
+  .cardapio-bolha.min .cb-body{display:none}
+  .cardapio-bolha .cb-sub{font-family:"Baloo 2";font-weight:800;font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--sol-esc);margin:8px 0 3px}
+  .cardapio-bolha .cb-sub:first-child{margin-top:2px}
+  .cardapio-bolha ul{list-style:none;margin:0;padding:0}
+  .cardapio-bolha li{font-weight:700;font-size:13.5px;padding:2px 0;color:var(--mar);line-height:1.25;display:flex;align-items:center;gap:6px}
+  .cardapio-bolha li .ic{font-size:12px;flex:none}
+  .cardapio-bolha li .acab-tag{margin-left:4px;background:#E0431A;color:#fff;font-family:"Baloo 2";font-weight:800;font-size:9.5px;letter-spacing:.03em;padding:1px 7px;border-radius:999px;white-space:nowrap;animation:pisca 1s steps(1,end) infinite}
+  @keyframes pisca{50%{opacity:.2}}
   @keyframes flutua{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-4px) scale(1.02)}}
   .btn-centro-wrap{border:0!important;background:transparent!important;box-shadow:none!important}
   .btn-centro{width:40px;height:40px;border:0;border-radius:10px;background:#fff;box-shadow:0 2px 8px rgba(11,59,84,.35);font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;padding:0}
@@ -148,6 +154,9 @@
   .caldo-row.on .chk{background:#20B15A;border-color:#20B15A}
   .caldo-row .nome{flex:1;font-weight:700;font-size:15px}
   .caldo-row .rm{opacity:.55;font-weight:800;font-size:20px;padding:0 4px;line-height:1}
+  .caldo-row .acab{border:0;cursor:pointer;background:rgba(255,255,255,.14);color:#ffd9a8;font-weight:800;font-size:11px;padding:7px 10px;border-radius:999px;white-space:nowrap;flex:none}
+  .caldo-row .acab.on{background:#E0431A;color:#fff;animation:piscap 1s steps(1,end) infinite}
+  @keyframes piscap{50%{opacity:.35}}
   .addrow{display:flex;gap:8px}
   .addrow input{flex:1;border:0;border-radius:12px;padding:13px;font-size:15px;font-family:inherit;font-weight:600}
   .addrow button{border:0;background:var(--sol);color:#fff;font-size:24px;font-weight:800;width:52px;border-radius:12px;cursor:pointer}
@@ -205,8 +214,8 @@
     <span class="quando" id="quando"></span>
   </div>
   <div class="cardapio-bolha" id="bolha" onclick="this.classList.toggle('min')">
-    <div class="cb-tit">🍲 Caldos do dia <span class="cb-seta">▾</span></div>
-    <ul id="cbLista"></ul>
+    <div class="cb-tit">🍲 Cardápio de hoje <span class="cb-seta">▾</span></div>
+    <div class="cb-body" id="cbBody"></div>
   </div>
 </div>
 
@@ -254,6 +263,15 @@
       <div class="addrow">
         <input type="text" id="novoCaldo" placeholder="Adicionar outro caldo…">
         <button id="btnAddCaldo">+</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <label>🥟 Nhoques do dia — marque o que tem hoje</label>
+      <div id="listaNhoques" class="caldos"></div>
+      <div class="addrow">
+        <input type="text" id="novoNhoque" placeholder="Adicionar outro nhoque…">
+        <button id="btnAddNhoque">+</button>
       </div>
     </div>
 
@@ -387,14 +405,34 @@ function desenha(d){
   btnRota.onclick=()=>window.open('https://www.google.com/maps/dir/?api=1&destination='+d.lat+','+d.lng,'_blank');
 }
 
+function itensAtivos(cardapio,chave){
+  let lista=[];
+  if(cardapio && Array.isArray(cardapio[chave])) lista=cardapio[chave];
+  else if(chave==='caldos' && cardapio && Array.isArray(cardapio.itens)) lista=cardapio.itens; // formato antigo
+  return lista.filter(x=>x&&x.ativo).map(x=>({nome:x.nome,acabando:!!x.acabando}));
+}
+function secaoBolha(titulo,emoji,itens){
+  const frag=document.createDocumentFragment();
+  const sub=document.createElement('div'); sub.className='cb-sub'; sub.textContent=titulo; frag.appendChild(sub);
+  const ul=document.createElement('ul');
+  itens.forEach(it=>{
+    const li=document.createElement('li');
+    const ic=document.createElement('span'); ic.className='ic'; ic.textContent=emoji;
+    const nm=document.createElement('span'); nm.textContent=it.nome;
+    li.appendChild(ic); li.appendChild(nm);
+    if(it.acabando){ const t=document.createElement('span'); t.className='acab-tag'; t.textContent='ACABANDO!'; li.appendChild(t); }
+    ul.appendChild(li);
+  });
+  frag.appendChild(ul); return frag;
+}
 function desenhaBolha(cardapio){
   const bolha=document.getElementById('bolha'); if(!bolha) return;
-  const itens=(cardapio&&Array.isArray(cardapio.itens))?cardapio.itens.filter(x=>x&&x.ativo):[];
-  if(!itens.length){ bolha.classList.remove('show'); return; }
-  const tit=bolha.querySelector('.cb-tit');
-  tit.childNodes[0].nodeValue = '🍲 '+((cardapio&&cardapio.titulo)||'Caldos do dia')+' ';
-  const ul=document.getElementById('cbLista');
-  ul.innerHTML=''; itens.forEach(it=>{const li=document.createElement('li');li.textContent=it.nome;ul.appendChild(li);});
+  const caldos=itensAtivos(cardapio,'caldos');
+  const nhoques=itensAtivos(cardapio,'nhoques');
+  if(!caldos.length && !nhoques.length){ bolha.classList.remove('show'); return; }
+  const body=document.getElementById('cbBody'); body.innerHTML='';
+  if(caldos.length) body.appendChild(secaoBolha('🍲 Caldos','🍤',caldos));
+  if(nhoques.length) body.appendChild(secaoBolha('🥟 Nhoques','🥟',nhoques));
   bolha.classList.add('show');
 }
 
@@ -491,39 +529,55 @@ document.getElementById('btnFechado').onclick=()=>{
 };
 document.getElementById('btnRecado').onclick=()=>salva({recado:document.getElementById('recadoIn').value});
 
-/* ---------- Caldos do dia (painel) ---------- */
+/* ---------- Cardápio: Caldos e Nhoques (painel) ---------- */
 function painelAberto(){ return painel.classList.contains('show') && document.getElementById('painelInterno').style.display==='flex'; }
+function listaDe(chave,padrao){
+  const c=atual&&atual.cardapio;
+  if(c && Array.isArray(c[chave])) return c[chave].map(x=>({nome:x.nome,ativo:!!x.ativo,acabando:!!x.acabando}));
+  if(chave==='caldos' && c && Array.isArray(c.itens)) return c.itens.map(x=>({nome:x.nome,ativo:!!x.ativo,acabando:!!x.acabando})); // compat
+  return padrao.map(n=>({nome:n,ativo:true,acabando:false}));
+}
+function cardapioAtual(){ return {caldos:listaDe('caldos',CALDOS_PADRAO), nhoques:listaDe('nhoques',NHOQUES_PADRAO)}; }
+function gravaCardapio(card){ salva({cardapio:card}); renderCardapio(); }
 function talvezSeedCardapio(){
   if(DEMO || !dadosOk || !ehDono() || !painelAberto()) return;
-  if(atual && atual.cardapio) return;      // já existe cardápio salvo: não mexe
-  salvaCardapio(caldosAtuais());           // primeira vez: grava os padrões (todos marcados)
+  const c=atual&&atual.cardapio;
+  if(c && Array.isArray(c.caldos) && Array.isArray(c.nhoques)) return; // já está no formato novo
+  gravaCardapio(cardapioAtual());   // primeira vez OU migração do formato antigo (mantém caldos, adiciona nhoques)
 }
-function caldosAtuais(){
-  if(atual && atual.cardapio && Array.isArray(atual.cardapio.itens)) return atual.cardapio.itens.map(x=>({nome:x.nome,ativo:!!x.ativo}));
-  return CALDOS_PADRAO.map(n=>({nome:n,ativo:true}));
-}
-function salvaCardapio(itens){ salva({cardapio:{titulo:'Caldos do dia',itens:itens}}); renderCardapio(); }
-function renderCardapio(){
-  const box=document.getElementById('listaCaldos'); if(!box) return;
-  const itens=caldosAtuais(); box.innerHTML='';
-  itens.forEach((it,i)=>{
+function renderLista(boxId,chave,padrao){
+  const box=document.getElementById(boxId); if(!box) return;
+  const lista=listaDe(chave,padrao); box.innerHTML='';
+  lista.forEach((it,i)=>{
     const row=document.createElement('div'); row.className='caldo-row'+(it.ativo?' on':'');
     const chk=document.createElement('div'); chk.className='chk'; chk.textContent=it.ativo?'✓':'';
     const nome=document.createElement('div'); nome.className='nome'; nome.textContent=it.nome;
+    row.appendChild(chk); row.appendChild(nome);
+    if(it.ativo){
+      const acab=document.createElement('button'); acab.type='button';
+      acab.className='acab'+(it.acabando?' on':''); acab.textContent=it.acabando?'⏳ Acabando':'Acabando?';
+      acab.onclick=(e)=>{ e.stopPropagation(); const c=cardapioAtual(); c[chave][i].acabando=!c[chave][i].acabando; gravaCardapio(c); };
+      row.appendChild(acab);
+    }
     const rm=document.createElement('div'); rm.className='rm'; rm.textContent='×'; rm.title='Remover';
-    row.appendChild(chk); row.appendChild(nome); row.appendChild(rm);
-    row.onclick=(e)=>{ if(e.target===rm) return; itens[i].ativo=!itens[i].ativo; salvaCardapio(itens); };
-    rm.onclick=(e)=>{ e.stopPropagation(); itens.splice(i,1); salvaCardapio(itens); };
+    rm.onclick=(e)=>{ e.stopPropagation(); const c=cardapioAtual(); c[chave].splice(i,1); gravaCardapio(c); };
+    row.appendChild(rm);
+    row.onclick=()=>{ const c=cardapioAtual(); c[chave][i].ativo=!c[chave][i].ativo; if(!c[chave][i].ativo) c[chave][i].acabando=false; gravaCardapio(c); };
     box.appendChild(row);
   });
 }
-document.getElementById('btnAddCaldo').onclick=()=>{
-  const inp=document.getElementById('novoCaldo'); const nome=inp.value.trim();
-  if(!nome) return;
-  const itens=caldosAtuais(); itens.push({nome:nome,ativo:true}); inp.value='';
-  salvaCardapio(itens);
-};
-document.getElementById('novoCaldo').addEventListener('keydown',e=>{ if(e.key==='Enter') document.getElementById('btnAddCaldo').click(); });
+function renderCardapio(){
+  renderLista('listaCaldos','caldos',CALDOS_PADRAO);
+  renderLista('listaNhoques','nhoques',NHOQUES_PADRAO);
+}
+function addItem(chave,inputId){
+  const inp=document.getElementById(inputId); const nome=inp.value.trim(); if(!nome) return;
+  const c=cardapioAtual(); c[chave].push({nome:nome,ativo:true,acabando:false}); inp.value=''; gravaCardapio(c);
+}
+document.getElementById('btnAddCaldo').onclick=()=>addItem('caldos','novoCaldo');
+document.getElementById('btnAddNhoque').onclick=()=>addItem('nhoques','novoNhoque');
+document.getElementById('novoCaldo').addEventListener('keydown',e=>{ if(e.key==='Enter') addItem('caldos','novoCaldo'); });
+document.getElementById('novoNhoque').addEventListener('keydown',e=>{ if(e.key==='Enter') addItem('nhoques','novoNhoque'); });
 
 // Recados rápidos (toque e já preenche o campo)
 const RAPIDOS=["🔥 Chegamos! Caldinho quentinho","🛵 Estamos chegando na praia","⏳ Últimas unidades de hoje","🕕 Ficamos até 18h","😋 Caldinho de camarão fresquinho"];
