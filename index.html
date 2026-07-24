@@ -126,6 +126,11 @@
   .card label{display:block;font-weight:800;font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:#bcd6e0;margin-bottom:8px}
   .big{width:100%;border:0;border-radius:14px;padding:18px;font-family:"Baloo 2";font-weight:800;font-size:20px;color:#fff;cursor:pointer;background:var(--agua)}
   .big.laranja{background:var(--sol)}
+  .big.azul{background:var(--mar)}
+  .big.verde{background:#20B15A}
+  .rapidos{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+  .rapidos button{border:0;cursor:pointer;background:rgba(255,255,255,.14);color:#fff;font-weight:700;font-size:13px;padding:8px 12px;border-radius:999px}
+  .rapidos button:active{background:rgba(255,255,255,.28)}
   .big.vermelho{background:var(--coral)}
   .row2{display:flex;gap:10px}
   .row2 .big{flex:1;font-size:17px;padding:15px}
@@ -204,7 +209,16 @@
     <div class="card">
       <label>Recado para o cliente (opcional)</label>
       <input type="text" id="recadoIn" placeholder="Ex: perto do quiosque, fico até 18h">
+      <div class="rapidos" id="rapidos"></div>
       <button class="big laranja" id="btnRecado" style="margin-top:10px">Salvar recado</button>
+    </div>
+
+    <div class="card">
+      <label>Divulgar / conferir</label>
+      <div class="row2">
+        <button class="big azul" id="btnVerMapa">👀 Ver como cliente</button>
+        <button class="big verde" id="btnWhats">📲 Enviar no WhatsApp</button>
+      </div>
     </div>
 
     <button class="sair" id="btnSair">Sair do painel</button>
@@ -385,6 +399,21 @@ document.getElementById('btnFechado').onclick=()=>{
   salva({aberto:false,aoVivo:false,rumo:null});
 };
 document.getElementById('btnRecado').onclick=()=>salva({recado:document.getElementById('recadoIn').value});
+
+// Recados rápidos (toque e já preenche o campo)
+const RAPIDOS=["🔥 Chegamos! Caldinho quentinho","🛵 Estamos chegando na praia","⏳ Últimas unidades de hoje","🕕 Ficamos até 18h","😋 Caldinho de camarão fresquinho"];
+const rapidosBox=document.getElementById('rapidos');
+RAPIDOS.forEach(t=>{const b=document.createElement('button');b.textContent=t;b.onclick=()=>{document.getElementById('recadoIn').value=t;};rapidosBox.appendChild(b);});
+
+// Ver como o cliente vê (abre o mapa limpo)
+document.getElementById('btnVerMapa').onclick=()=>window.open(location.origin+location.pathname.replace(/painel\.html$/,''),'_blank');
+
+// Enviar o link no WhatsApp
+document.getElementById('btnWhats').onclick=()=>{
+  const link=location.origin+location.pathname.replace(/painel\.html$/,'');
+  const msg='📍 Estamos na praia AGORA! Veja no mapa onde o Caldeirão Nordestino está e como chegar: '+link;
+  window.open('https://wa.me/?text='+encodeURIComponent(msg),'_blank');
+};
 </script>
 </body>
 </html>
