@@ -301,7 +301,10 @@ setInterval(()=>{ if(atual&&atual.atualizadoEm) document.getElementById('quando'
 
 /* ================= PAINEL (dono) ================= */
 const ehDono = ()=> localStorage.getItem('dono')==='sim';
-if(location.hash.replace('#','')==='painel'){
+const noPainel = ()=> localStorage.getItem('vendo')==='painel';
+// Abre o painel se veio pelo #painel OU se o dono estava no painel antes de recarregar
+if(location.hash.replace('#','')==='painel' || (ehDono() && noPainel())){
+  if(location.hash.replace('#','')!=='painel'){ location.hash='painel'; }
   painel.classList.add('show');
   if(ehDono()) abrePainel();   // já entrou antes neste celular: não pede senha
 }
@@ -314,13 +317,14 @@ function entrar(){
   else{ document.getElementById('senhaErro').textContent='Senha errada'; }
 }
 function abrePainel(){
+  localStorage.setItem('vendo','painel');
   document.getElementById('senhaBox').style.display='none';
   document.getElementById('painelInterno').style.display='flex';
   document.getElementById('painelSub').textContent = DEMO ? 'MODO DEMO — nada é salvo' : NEGOCIO;
   // se estava "ao vivo", religa sozinho ao reabrir
   if(atual && atual.aoVivo){ document.getElementById('aoVivo').checked=true; pegaLocal(true); }
 }
-document.getElementById('btnSair').onclick=()=>{painel.classList.remove('show');location.hash='';};
+document.getElementById('btnSair').onclick=()=>{localStorage.removeItem('vendo');painel.classList.remove('show');location.hash='';};
 
 function salva(campos){
   const dados = Object.assign({}, atual||{}, campos, {atualizadoEm:Date.now()});
