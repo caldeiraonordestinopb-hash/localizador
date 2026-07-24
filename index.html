@@ -136,6 +136,13 @@
   .btn .ico{font-size:22px;line-height:1}
 
   .fechado-msg{text-align:center;color:#7c8a92;font-weight:700;padding:8px 0 2px;display:none}
+  .btn-aviso{background:var(--mar);box-shadow:0 8px 20px rgba(11,59,84,.3);margin-top:10px;font-size:17px}
+  .btn-aviso.on{background:#20B15A;box-shadow:0 8px 20px rgba(32,177,90,.35)}
+  .prox-pop{position:fixed;left:50%;top:22%;transform:translate(-50%,-50%) scale(.7);z-index:9998;background:linear-gradient(160deg,var(--sol),var(--sol-esc));color:#fff;border-radius:20px;padding:22px 26px;box-shadow:0 18px 50px rgba(0,0,0,.4);text-align:center;max-width:82%;opacity:0;pointer-events:none;transition:opacity .25s, transform .25s}
+  .prox-pop.show{opacity:1;transform:translate(-50%,-50%) scale(1);animation:popbeat 1s ease-in-out infinite}
+  .prox-pop .pp-emoji{font-size:40px;line-height:1;margin-bottom:6px}
+  .prox-pop .pp-txt{font-family:"Baloo 2",sans-serif;font-weight:800;font-size:20px;line-height:1.2;text-shadow:0 1px 0 rgba(0,0,0,.2)}
+  @keyframes popbeat{0%,100%{transform:translate(-50%,-50%) scale(1)}50%{transform:translate(-50%,-50%) scale(1.05)}}
   .fechado-msg.show{display:block}
 
   /* ---------- Painel admin ---------- */
@@ -222,7 +229,13 @@
 <div class="base">
   <div class="recado" id="recadoBox"><b>Recado</b><span id="recadoTxt"></span></div>
   <button class="btn" id="btnRota" disabled><span class="ico">🧭</span> Como chegar</button>
+  <button class="btn btn-aviso" id="btnAviso"><span class="ico">🔔</span> <span id="avisoTxt">Avisar quando estiver perto</span></button>
   <div class="fechado-msg" id="fechadoMsg">O carrinho está fechado agora. Volte mais tarde 🙂</div>
+</div>
+
+<div class="prox-pop" id="proxPop">
+  <div class="pp-emoji" id="ppEmoji">🔥</div>
+  <div class="pp-txt" id="ppTxt"></div>
 </div>
 
 <!-- ===================== PAINEL (dono) ===================== -->
@@ -341,6 +354,8 @@ const icone = L.divIcon({className:'',html:'<div class="beacon"><div class="rumo
 let marcador = null;
 let watchId = null;
 let dadosOk = false;
+let avisoOn=false, cliWatch=null, cliPos=null, audioCtx=null;
+let disparado={150:false,100:false,50:false};
 const painel = document.getElementById('painel');
 
 /* ---------- Estado atual ---------- */
@@ -400,6 +415,7 @@ function desenha(d){
   // cardapio (balão)
   desenhaBolha(d.cardapio);
   if(painel.classList.contains('show') && document.getElementById('painelInterno').style.display==='flex'){ renderCardapio(); }
+  checaProximidade();
 
   // rota
   btnRota.onclick=()=>window.open('https://www.google.com/maps/dir/?api=1&destination='+d.lat+','+d.lng,'_blank');
@@ -461,8 +477,82 @@ if(!DEMO){
 }
 setInterval(()=>{ if(atual&&atual.atualizadoEm) document.getElementById('quando').textContent='atualizado '+haQuanto(atual.atualizadoEm); },30000);
 
-/* ================= PAINEL (dono) ================= */
-const ehDono = ()=> localStorage.getItem('dono')==='sim';
+/* ================= ALERTA DE PROXIMIDADE (cliente) ================= */
+function distMetros(a,b){
+  const R=6371000, rad=Math.PI/180;
+  const dLat=(b.lat-a.lat)*rad, dLng=(b.lng-a.lng)*rad;
+  const la1=a.lat*rad, la2=b.lat*rad;
+  const h=Math.sin(dLat/2)**2 + Math.cos(la1)*Math.cos(la2)*Math.sin(dLng/2)**2;
+  return 2*R*Math.asin(Math.min(1,Math.sqrt(h)));
+}
+function bip(vezes){
+  if(!audioCtx) return;
+  for(let i=0;i<vezes;i++){
+    const t=audioCtx.currentTime + i*0.22;
+    const o=audioCtx.createOscillator(), g=audioCtx.createGain();
+    o.type='sine'; o.frequency.value=880;
+    g.gain.setValueAtTime(0.0001,t);
+    g.gain.exponentialRampToValueAtTime(0.18,t+0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001,t+0.16);
+    o.connect(g); g.connect(audioCtx.destination);
+    o.start(t); o.stop(t+0.18);
+  }
+}
+function vibra(faixa){
+  if(!navigator.vibrate) return;
+  if(faixa===150) navigator.vibrate(220);
+  else if(faixa===100) navigator.vibrate([160,90,160]);
+  else navigator.vibrate([120,60,120,60,200]);
+}
+function mostraPop(faixa){
+  const pop=document.getElementById('proxPop');
+  document.getElementById('ppEmoji').textContent = faixa===50?'🎉':'🔥';
+  document.getElementById('ppTxt').textContent = faixa===50
+    ? 'Chegou! O carrinho está pertinho de você (~50m) 😋'
+    : 'O carrinho está a ~'+faixa+'m de você!';
+  pop.classList.add('show');
+  clearTimeout(mostraPop._t);
+  mostraPop._t=setTimeout(()=>pop.classList.remove('show'), 5000);
+}
+function dispara(faixa){
+  const vezes = faixa===150?1 : faixa===100?2 : 3;
+  bip(vezes); vibra(faixa); mostraPop(faixa);
+}
+function checaProximidade(){
+  if(!avisoOn || !cliPos || !atual || atual.lat==null || !atual.aberto) return;
+  const d=distMetros(cliPos,{lat:atual.lat,lng:atual.lng});
+  if(d>200){ disparado={150:false,100:false,50:false}; return; } // reafia os alertas se afastar
+  let faixa=null;
+  if(d<=50) faixa=50; else if(d<=100) faixa=100; else if(d<=150) faixa=150;
+  if(faixa && !disparado[faixa]){
+    [150,100,50].forEach(t=>{ if(t>=faixa) disparado[t]=true; });
+    dispara(faixa);
+  }
+}
+document.getElementById('btnAviso').onclick=function(){
+  if(avisoOn){ // desligar
+    avisoOn=false;
+    if(cliWatch!=null){ navigator.geolocation.clearWatch(cliWatch); cliWatch=null; }
+    this.classList.remove('on'); document.getElementById('avisoTxt').textContent='Avisar quando estiver perto';
+    return;
+  }
+  if(!navigator.geolocation){ alert('Seu aparelho não permite localização.'); return; }
+  // liga o som (precisa do toque do usuário)
+  try{ audioCtx = audioCtx || new (window.AudioContext||window.webkitAudioContext)(); if(audioCtx.state==='suspended') audioCtx.resume(); }catch(e){}
+  const bt=this;
+  document.getElementById('avisoTxt').textContent='Buscando sua localização…';
+  cliWatch=navigator.geolocation.watchPosition(
+    p=>{
+      cliPos={lat:p.coords.latitude,lng:p.coords.longitude};
+      if(!avisoOn){ avisoOn=true; bt.classList.add('on'); document.getElementById('avisoTxt').textContent='Aviso ligado — te avisamos quando chegarmos'; }
+      checaProximidade();
+    },
+    err=>{ document.getElementById('avisoTxt').textContent='Precisa permitir a localização'; },
+    {enableHighAccuracy:true,timeout:20000,maximumAge:0}
+  );
+};
+
+
 // O painel abre SOMENTE quando a URL pede (#painel). O link do cliente nunca abre o painel.
 if(location.hash.replace('#','')==='painel'){
   painel.classList.add('show');
