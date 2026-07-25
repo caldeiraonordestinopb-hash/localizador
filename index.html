@@ -358,6 +358,7 @@ const icone = L.divIcon({className:'',html:'<div class="beacon"><div class="rumo
 let marcador = null;
 let watchId = null;
 let dadosOk = false;
+let wakeLock = null;
 let avisoOn=false, cliWatch=null, cliPos=null, audioCtx=null;
 let disparado={150:false,100:false,50:false};
 const painel = document.getElementById('painel');
@@ -583,7 +584,7 @@ function abrePainel(){
   document.getElementById('painelInterno').style.display='flex';
   document.getElementById('painelSub').textContent = DEMO ? 'MODO DEMO — nada é salvo' : NEGOCIO;
   // se estava "ao vivo", religa sozinho ao reabrir
-  if(atual && atual.aoVivo){ document.getElementById('aoVivo').checked=true; pegaLocal(true); }
+  if(atual && atual.aoVivo){ document.getElementById('aoVivo').checked=true; pegaLocal(true); manterTelaAcesa(true); }
   renderCardapio();
   talvezSeedCardapio();
 }
@@ -600,9 +601,29 @@ function toastPainel(t){ document.getElementById('localStatus').textContent=t; }
 
 document.getElementById('btnLocal').onclick=()=>pegaLocal(false);
 document.getElementById('aoVivo').onchange=e=>{
-  if(e.target.checked) pegaLocal(true);
-  else { if(watchId){navigator.geolocation.clearWatch(watchId);watchId=null;} salva({aoVivo:false}); }
+  if(e.target.checked){ pegaLocal(true); manterTelaAcesa(true); }
+  else { if(watchId){navigator.geolocation.clearWatch(watchId);watchId=null;} manterTelaAcesa(false); salva({aoVivo:false}); }
 };
+
+// ---- Trava de tela (Wake Lock): mantém a tela acesa enquanto o "ao vivo" está ligado ----
+async function manterTelaAcesa(ligar){
+  try{
+    if(ligar){
+      if('wakeLock' in navigator){ wakeLock=await navigator.wakeLock.request('screen'); }
+    }else{
+      if(wakeLock){ await wakeLock.release(); wakeLock=null; }
+    }
+  }catch(e){/* alguns aparelhos não suportam; segue sem travar */}
+}
+// Ao voltar pro app: se o "ao vivo" estava ligado, reativa a tela acesa e religa o GPS
+document.addEventListener('visibilitychange', ()=>{
+  if(document.visibilityState!=='visible') return;
+  const liga=document.getElementById('aoVivo');
+  if(liga && liga.checked){
+    manterTelaAcesa(true);
+    if(!watchId) pegaLocal(true);   // religa o rastreamento se o sistema tiver pausado
+  }
+});
 
 function pegaLocal(vivo){
   if(!navigator.geolocation){ toastPainel('Este aparelho não tem GPS'); return; }
@@ -627,6 +648,7 @@ function pegaLocal(vivo){
 document.getElementById('btnAberto').onclick=()=>salva({aberto:true});
 document.getElementById('btnFechado').onclick=()=>{
   if(watchId){navigator.geolocation.clearWatch(watchId);watchId=null;document.getElementById('aoVivo').checked=false;}
+  manterTelaAcesa(false);
   salva({aberto:false,aoVivo:false,rumo:null});
 };
 document.getElementById('btnRecado').onclick=()=>salva({recado:document.getElementById('recadoIn').value});
