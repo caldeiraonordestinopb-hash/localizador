@@ -554,6 +554,8 @@ if(_elAviso) _elAviso.onclick=function(){
 };
 
 
+/* ================= PAINEL (dono) ================= */
+const ehDono = ()=> localStorage.getItem('dono')==='sim';
 // O painel abre SOMENTE quando a URL pede (#painel). O link do cliente nunca abre o painel.
 if(location.hash.replace('#','')==='painel'){
   painel.classList.add('show');
