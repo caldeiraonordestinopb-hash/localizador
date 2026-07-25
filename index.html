@@ -529,7 +529,8 @@ function checaProximidade(){
     dispara(faixa);
   }
 }
-document.getElementById('btnAviso').onclick=function(){
+const _elAviso=document.getElementById('btnAviso');
+if(_elAviso) _elAviso.onclick=function(){
   if(avisoOn){ // desligar
     avisoOn=false;
     if(cliWatch!=null){ navigator.geolocation.clearWatch(cliWatch); cliWatch=null; }
@@ -559,10 +560,12 @@ if(location.hash.replace('#','')==='painel'){
   if(ehDono()) abrePainel();   // já entrou antes neste celular: não pede senha
 }
 
-document.getElementById('btnEntrar').onclick=entrar;
-document.getElementById('senhaInput').addEventListener('keydown',e=>{if(e.key==='Enter')entrar();});
+const _btnEntrar=document.getElementById('btnEntrar');
+if(_btnEntrar) _btnEntrar.onclick=entrar;
+const _senhaInput=document.getElementById('senhaInput');
+if(_senhaInput) _senhaInput.addEventListener('keydown',e=>{if(e.key==='Enter')entrar();});
 function entrar(){
-  const v=document.getElementById('senhaInput').value;
+  const v=(document.getElementById('senhaInput').value||'').trim();
   if(v===SENHA_PAINEL){ localStorage.setItem('dono','sim'); abrePainel(); }
   else{ document.getElementById('senhaErro').textContent='Senha errada'; }
 }
