@@ -91,7 +91,10 @@
   .cardapio-bolha ul{list-style:none;margin:0;padding:0}
   .cardapio-bolha li{font-weight:700;font-size:13.5px;padding:2px 0;color:var(--mar);line-height:1.25;display:flex;align-items:center;gap:6px}
   .cardapio-bolha li .ic{font-size:12px;flex:none}
-  .cardapio-bolha li .acab-tag{margin-left:4px;background:#E0431A;color:#fff;font-family:"Baloo 2";font-weight:800;font-size:9.5px;letter-spacing:.03em;padding:1px 7px;border-radius:999px;white-space:nowrap;animation:pisca 1s steps(1,end) infinite}
+  .cardapio-bolha li .acab-tag{margin-left:4px;color:#fff;font-family:"Baloo 2";font-weight:800;font-size:9.5px;letter-spacing:.03em;padding:1px 7px;border-radius:999px;white-space:nowrap;animation:pisca 1s steps(1,end) infinite}
+  .cardapio-bolha li .acab-tag.amarelo{background:#F5A800;color:#4a3400}
+  .cardapio-bolha li .acab-tag.vermelho{background:#E0431A;color:#fff}
+  .cardapio-bolha li .riscado{text-decoration:line-through;opacity:.6}
   @keyframes pisca{50%{opacity:.2}}
   @keyframes flutua{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-4px) scale(1.02)}}
   .btn-centro-wrap{border:0!important;background:transparent!important;box-shadow:none!important}
@@ -161,8 +164,9 @@
   .caldo-row.on .chk{background:#20B15A;border-color:#20B15A}
   .caldo-row .nome{flex:1;font-weight:700;font-size:15px}
   .caldo-row .rm{opacity:.55;font-weight:800;font-size:20px;padding:0 4px;line-height:1}
-  .caldo-row .acab{border:0;cursor:pointer;background:rgba(255,255,255,.14);color:#ffd9a8;font-weight:800;font-size:11px;padding:7px 10px;border-radius:999px;white-space:nowrap;flex:none}
-  .caldo-row .acab.on{background:#E0431A;color:#fff;animation:piscap 1s steps(1,end) infinite}
+  .caldo-row .acab{border:0;cursor:pointer;background:rgba(255,255,255,.14);color:#cfd8dc;font-weight:800;font-size:11px;padding:7px 10px;border-radius:999px;white-space:nowrap;flex:none}
+  .caldo-row .acab.amarelo{background:#F5A800;color:#4a3400;animation:piscap 1.1s steps(1,end) infinite}
+  .caldo-row .acab.vermelho{background:#E0431A;color:#fff;animation:piscap 1s steps(1,end) infinite}
   @keyframes piscap{50%{opacity:.35}}
   .addrow{display:flex;gap:8px}
   .addrow input{flex:1;border:0;border-radius:12px;padding:13px;font-size:15px;font-family:inherit;font-weight:600}
@@ -425,8 +429,9 @@ function itensAtivos(cardapio,chave){
   let lista=[];
   if(cardapio && Array.isArray(cardapio[chave])) lista=cardapio[chave];
   else if(chave==='caldos' && cardapio && Array.isArray(cardapio.itens)) lista=cardapio.itens; // formato antigo
-  return lista.filter(x=>x&&x.ativo).map(x=>({nome:x.nome,acabando:!!x.acabando}));
+  return lista.filter(x=>x&&x.ativo).map(x=>({nome:x.nome,estado:estadoDe(x)}));
 }
+function estadoDe(x){ if(x.estado==='acabou') return 'acabou'; if(x.estado==='acabando'||x.acabando) return 'acabando'; return 'ok'; }
 function secaoBolha(titulo,emoji,itens){
   const frag=document.createDocumentFragment();
   const sub=document.createElement('div'); sub.className='cb-sub'; sub.textContent=titulo; frag.appendChild(sub);
@@ -435,8 +440,10 @@ function secaoBolha(titulo,emoji,itens){
     const li=document.createElement('li');
     const ic=document.createElement('span'); ic.className='ic'; ic.textContent=emoji;
     const nm=document.createElement('span'); nm.textContent=it.nome;
+    if(it.estado==='acabou') nm.className='riscado';
     li.appendChild(ic); li.appendChild(nm);
-    if(it.acabando){ const t=document.createElement('span'); t.className='acab-tag'; t.textContent='ACABANDO!'; li.appendChild(t); }
+    if(it.estado==='acabando'){ const t=document.createElement('span'); t.className='acab-tag amarelo'; t.textContent='ACABANDO!'; li.appendChild(t); }
+    else if(it.estado==='acabou'){ const t=document.createElement('span'); t.className='acab-tag vermelho'; t.textContent='ACABOU'; li.appendChild(t); }
     ul.appendChild(li);
   });
   frag.appendChild(ul); return frag;
@@ -628,9 +635,9 @@ document.getElementById('btnRecado').onclick=()=>salva({recado:document.getEleme
 function painelAberto(){ return painel.classList.contains('show') && document.getElementById('painelInterno').style.display==='flex'; }
 function listaDe(chave,padrao){
   const c=atual&&atual.cardapio;
-  if(c && Array.isArray(c[chave])) return c[chave].map(x=>({nome:x.nome,ativo:!!x.ativo,acabando:!!x.acabando}));
-  if(chave==='caldos' && c && Array.isArray(c.itens)) return c.itens.map(x=>({nome:x.nome,ativo:!!x.ativo,acabando:!!x.acabando})); // compat
-  return padrao.map(n=>({nome:n,ativo:true,acabando:false}));
+  if(c && Array.isArray(c[chave])) return c[chave].map(x=>({nome:x.nome,ativo:!!x.ativo,estado:estadoDe(x)}));
+  if(chave==='caldos' && c && Array.isArray(c.itens)) return c.itens.map(x=>({nome:x.nome,ativo:!!x.ativo,estado:estadoDe(x)})); // compat
+  return padrao.map(n=>({nome:n,ativo:true,estado:'ok'}));
 }
 function cardapioAtual(){ return {caldos:listaDe('caldos',CALDOS_PADRAO), nhoques:listaDe('nhoques',NHOQUES_PADRAO)}; }
 function gravaCardapio(card){ salva({cardapio:card}); renderCardapio(); }
@@ -640,6 +647,7 @@ function talvezSeedCardapio(){
   if(c && Array.isArray(c.caldos) && Array.isArray(c.nhoques)) return; // já está no formato novo
   gravaCardapio(cardapioAtual());   // primeira vez OU migração do formato antigo (mantém caldos, adiciona nhoques)
 }
+const PROX_ESTADO={ok:'acabando',acabando:'acabou',acabou:'ok'};
 function renderLista(boxId,chave,padrao){
   const box=document.getElementById(boxId); if(!box) return;
   const lista=listaDe(chave,padrao); box.innerHTML='';
@@ -650,14 +658,16 @@ function renderLista(boxId,chave,padrao){
     row.appendChild(chk); row.appendChild(nome);
     if(it.ativo){
       const acab=document.createElement('button'); acab.type='button';
-      acab.className='acab'+(it.acabando?' on':''); acab.textContent=it.acabando?'⏳ Acabando':'Acabando?';
-      acab.onclick=(e)=>{ e.stopPropagation(); const c=cardapioAtual(); c[chave][i].acabando=!c[chave][i].acabando; gravaCardapio(c); };
+      const est=it.estado||'ok';
+      acab.className='acab'+(est==='acabando'?' amarelo':est==='acabou'?' vermelho':'');
+      acab.textContent = est==='acabando'?'⏳ Acabando' : est==='acabou'?'🚫 Acabou' : 'Marcar';
+      acab.onclick=(e)=>{ e.stopPropagation(); const c=cardapioAtual(); c[chave][i].estado=PROX_ESTADO[c[chave][i].estado||'ok']; gravaCardapio(c); };
       row.appendChild(acab);
     }
     const rm=document.createElement('div'); rm.className='rm'; rm.textContent='×'; rm.title='Remover';
     rm.onclick=(e)=>{ e.stopPropagation(); const c=cardapioAtual(); c[chave].splice(i,1); gravaCardapio(c); };
     row.appendChild(rm);
-    row.onclick=()=>{ const c=cardapioAtual(); c[chave][i].ativo=!c[chave][i].ativo; if(!c[chave][i].ativo) c[chave][i].acabando=false; gravaCardapio(c); };
+    row.onclick=()=>{ const c=cardapioAtual(); c[chave][i].ativo=!c[chave][i].ativo; if(!c[chave][i].ativo) c[chave][i].estado='ok'; gravaCardapio(c); };
     box.appendChild(row);
   });
 }
@@ -667,7 +677,7 @@ function renderCardapio(){
 }
 function addItem(chave,inputId){
   const inp=document.getElementById(inputId); const nome=inp.value.trim(); if(!nome) return;
-  const c=cardapioAtual(); c[chave].push({nome:nome,ativo:true,acabando:false}); inp.value=''; gravaCardapio(c);
+  const c=cardapioAtual(); c[chave].push({nome:nome,ativo:true,estado:'ok'}); inp.value=''; gravaCardapio(c);
 }
 document.getElementById('btnAddCaldo').onclick=()=>addItem('caldos','novoCaldo');
 document.getElementById('btnAddNhoque').onclick=()=>addItem('nhoques','novoNhoque');
