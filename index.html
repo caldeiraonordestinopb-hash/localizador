@@ -110,7 +110,9 @@
   .vt-tab.on{background:linear-gradient(160deg,var(--sol),var(--sol-esc))}
   .vt-body{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:2px 16px 26px;display:flex;flex-direction:column;gap:16px}
   .vt-card{background:rgba(255,255,255,.05);border-radius:18px;overflow:hidden;box-shadow:0 8px 22px rgba(0,0,0,.4)}
-  .vt-foto{position:relative;width:100%;aspect-ratio:1/1;background:#241812 center/cover no-repeat;display:flex;align-items:center;justify-content:center}
+  .vt-foto{position:relative;width:100%;background:#241812;line-height:0}
+  .vt-foto img{width:100%;display:block}
+  .vt-foto.semfoto{aspect-ratio:1/1;display:flex;align-items:center;justify-content:center;line-height:normal}
   .vt-foto .semfoto-txt{opacity:.45;font-weight:700;font-size:14px}
   .vt-nome{padding:12px 16px 14px;font-family:"Baloo 2",sans-serif;font-weight:800;font-size:19px}
   .vt-badge{position:absolute;top:12px;left:12px;font-family:"Baloo 2",sans-serif;font-weight:800;font-size:12px;padding:4px 12px;border-radius:999px;color:#fff;animation:pisca 1s steps(1,end) infinite}
@@ -668,8 +670,8 @@ function renderVitrine(cat){
     const card=document.createElement('div'); card.className='vt-card'+(it.estado==='acabou'?' acabou':'');
     const foto=document.createElement('div'); foto.className='vt-foto';
     const url=fotoDe(cat,it.nome);
-    if(url){ foto.style.backgroundImage='url('+url+')'; }
-    else { const s=document.createElement('div'); s.className='semfoto-txt'; s.textContent='📷 foto em breve'; foto.appendChild(s); }
+    if(url){ const im=document.createElement('img'); im.src=url; im.alt=it.nome; im.loading='lazy'; foto.appendChild(im); }
+    else { foto.classList.add('semfoto'); const s=document.createElement('div'); s.className='semfoto-txt'; s.textContent='📷 foto em breve'; foto.appendChild(s); }
     if(it.estado==='acabando'){ const b=document.createElement('div'); b.className='vt-badge amarelo'; b.textContent='ACABANDO!'; foto.appendChild(b); }
     else if(it.estado==='acabou'){ const b=document.createElement('div'); b.className='vt-badge vermelho'; b.textContent='ACABOU'; foto.appendChild(b); }
     const nome=document.createElement('div'); nome.className='vt-nome'; nome.textContent=it.nome;
