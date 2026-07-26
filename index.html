@@ -243,7 +243,6 @@
     <button class="ico-btn" id="ibCardapio" type="button"><span class="ib-ic">🍽️</span><span class="ib-lb">Cardápio</span></button>
     <button class="ico-btn" id="ibEsperando" type="button"><span class="ib-ic">✋</span><span class="ib-lb">Te espero</span></button>
     <button class="ico-btn" id="ibAvisar" type="button"><span class="ib-ic">🔔</span><span class="ib-lb">Me avise</span></button>
-    <button class="ico-btn" id="ibRota" type="button"><span class="ib-ic">🧭</span><span class="ib-lb">Chegar</span></button>
   </div>
 
   <div class="cardapio-bolha min" id="bolha" onclick="this.classList.toggle('min')">
@@ -602,12 +601,6 @@ document.getElementById('ibCardapio').onclick=()=>{
 };
 // Me avise: dispara o fluxo de proximidade que já existe
 document.getElementById('ibAvisar').onclick=()=>{ document.getElementById('btnAviso').click(); };
-// Como chegar: usa o botão de rota que já existe
-document.getElementById('ibRota').onclick=()=>{
-  const r=document.getElementById('btnRota');
-  if(r.disabled){ toast('Ainda não sabemos onde o carrinho está 🙂'); return; }
-  r.click();
-};
 // Te espero: será ativado na próxima etapa
 document.getElementById('ibEsperando').onclick=()=>{ toast('✋ "Te espero" chega já já! 🔥'); };
 
