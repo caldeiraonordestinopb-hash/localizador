@@ -97,6 +97,9 @@
   .oculto{display:none !important}
   .mini-toast{position:absolute;left:50%;bottom:16px;transform:translateX(-50%) translateY(10px);z-index:700;background:var(--mar);color:#fff;font-weight:700;font-size:13px;padding:10px 16px;border-radius:999px;box-shadow:0 8px 20px rgba(0,0,0,.3);opacity:0;pointer-events:none;transition:opacity .25s, transform .25s;max-width:80%;text-align:center}
   .mini-toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  .cont-espera{position:absolute;top:58px;left:50%;transform:translateX(-50%);z-index:550;display:none;align-items:center;gap:6px;background:linear-gradient(160deg,var(--sol),var(--sol-esc));color:#fff;font-family:"Baloo 2",sans-serif;font-weight:800;font-size:13px;padding:7px 15px;border-radius:999px;box-shadow:0 6px 16px rgba(242,118,13,.42);white-space:nowrap;animation:flutua 2.6s ease-in-out infinite}
+  .pt-espera{width:16px;height:16px;border-radius:50%;background:var(--sol);border:3px solid #fff;box-shadow:0 0 0 0 rgba(255,140,43,.6);animation:pulseEsp 1.8s infinite}
+  @keyframes pulseEsp{0%{box-shadow:0 0 0 0 rgba(255,140,43,.5)}70%{box-shadow:0 0 0 11px rgba(255,140,43,0)}100%{box-shadow:0 0 0 0 rgba(255,140,43,0)}}
   /* Vitrine (cardápio em tela cheia) — some com o balão antigo */
   .cardapio-bolha{display:none !important}
   .vitrine{position:fixed;inset:0;z-index:10000;background:linear-gradient(180deg,#1c110a,#0c0704);color:#fff;display:none;flex-direction:column;transform:translateY(100%);transition:transform .32s ease}
@@ -289,6 +292,7 @@
   </div>
 
   <div class="mini-toast" id="miniToast"></div>
+  <div class="cont-espera" id="contEspera"></div>
 </div>
 
 <div class="base">
@@ -442,6 +446,8 @@ let marcador = null;
 let watchId = null;
 let dadosOk = false;
 let wakeLock = null;
+let euEspero = false;
+let camadaEspera = null;
 let avisoOn=false, cliWatch=null, cliPos=null, audioCtx=null;
 let disparado={150:false,100:false,50:false};
 const painel = document.getElementById('painel');
@@ -714,8 +720,47 @@ document.getElementById('vtX').onclick=()=>{ document.getElementById('vitrine').
 document.querySelectorAll('.vt-tab').forEach(t=>t.onclick=()=>renderVitrine(t.dataset.cat));
 // Me avise: dispara o fluxo de proximidade que já existe
 document.getElementById('ibAvisar').onclick=()=>{ document.getElementById('btnAviso').click(); };
-// Te espero: será ativado na próxima etapa
-document.getElementById('ibEsperando').onclick=()=>{ toast('✋ "Te espero" chega já já! 🔥'); };
+// Te espero: cliente marca que está esperando (ponto laranja p/ o dono + contador)
+const iconeEspera=L.divIcon({className:'',html:'<div class="pt-espera"></div>',iconSize:[16,16],iconAnchor:[8,8]});
+const VAL_ESPERA=90*60*1000; // 90 min
+function meuIdEspera(){ let id=localStorage.getItem('idesp'); if(!id){ id='e'+Date.now().toString(36)+Math.random().toString(36).slice(2,7); localStorage.setItem('idesp',id);} return id; }
+function atualizaEspera(pontos){
+  const n=pontos.length;
+  const cont=document.getElementById('contEspera');
+  if(cont){
+    if(n>=3 || (ehDono() && n>0)){ cont.style.display='inline-flex'; cont.textContent='🔥 '+n+(n===1?' pessoa te esperando':' pessoas te esperando'); }
+    else cont.style.display='none';
+  }
+  if(camadaEspera){ camadaEspera.forEach(mk=>{ try{map.removeLayer(mk);}catch(e){} }); }
+  camadaEspera=[];
+  if(ehDono()){ pontos.forEach(pt=>{ const mk=L.marker([pt.lat,pt.lng],{icon:iconeEspera}).addTo(map); camadaEspera.push(mk); }); }
+}
+document.getElementById('ibEsperando').onclick=()=>{
+  if(DEMO){ toast('Modo teste 🙂'); return; }
+  const ib=document.getElementById('ibEsperando');
+  if(euEspero){
+    db.ref('esperando/'+meuIdEspera()).remove();
+    euEspero=false; ib.classList.remove('on'); toast('Ok! Tiramos você da lista 🙂'); return;
+  }
+  if(!navigator.geolocation){ toast('Seu aparelho não permite localização.'); return; }
+  toast('📍 Marcando que você está esperando…');
+  navigator.geolocation.getCurrentPosition(p=>{
+    const lat=Math.round(p.coords.latitude*1000)/1000, lng=Math.round(p.coords.longitude*1000)/1000;
+    db.ref('esperando/'+meuIdEspera()).set({lat:lat,lng:lng,ts:Date.now()})
+      .then(()=>{ euEspero=true; ib.classList.add('on'); toast('🔥 Show! O Caldeirão já sabe que você está esperando!'); })
+      .catch(()=>toast('Não deu pra marcar agora 😕'));
+  }, err=>toast('Precisa permitir a localização 🙏'), {enableHighAccuracy:true,timeout:20000,maximumAge:0});
+};
+if(!DEMO){
+  db.ref('esperando').on('value', s=>{
+    const val=s.val()||{}; const agora=Date.now();
+    const pontos=Object.keys(val).map(k=>val[k]).filter(x=>x&&x.ts&&(agora-x.ts<VAL_ESPERA));
+    atualizaEspera(pontos);
+    const meu=val[meuIdEspera()];
+    euEspero=!!(meu && (agora-meu.ts<VAL_ESPERA));
+    document.getElementById('ibEsperando').classList.toggle('on', euEspero);
+  });
+}
 
 
 /* ================= PAINEL (dono) ================= */
