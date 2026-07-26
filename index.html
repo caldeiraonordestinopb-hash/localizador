@@ -80,6 +80,19 @@
   /* ---------- Mapa (herói) ---------- */
   .mapa-wrap{position:relative;flex:1;margin:6px 14px 0;border-radius:22px;overflow:hidden;box-shadow:var(--sombra)}
   .cardapio-bolha{position:absolute;left:12px;bottom:12px;z-index:500;max-width:70%;background:var(--areia-2);border-radius:16px;box-shadow:0 8px 22px rgba(11,59,84,.28);overflow:hidden;cursor:pointer;animation:flutua 2.6s ease-in-out infinite;transform-origin:bottom left;display:none}
+  /* Barra de ícones à esquerda */
+  .icon-bar{position:absolute;left:10px;top:64px;z-index:600;display:flex;flex-direction:column;gap:9px}
+  .ico-btn{width:54px;border:0;cursor:pointer;background:rgba(255,251,243,.96);border-radius:16px;box-shadow:0 6px 16px rgba(11,59,84,.22);padding:8px 4px 6px;display:flex;flex-direction:column;align-items:center;gap:2px;transition:transform .08s ease, background .2s;-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px)}
+  .ico-btn:active{transform:scale(.92)}
+  .ico-btn .ib-ic{font-size:22px;line-height:1.1}
+  .ico-btn .ib-lb{font-family:"Baloo 2",sans-serif;font-weight:800;font-size:8.5px;letter-spacing:.02em;color:var(--mar);text-transform:uppercase;line-height:1}
+  .ico-btn.on{background:linear-gradient(160deg,var(--sol),var(--sol-esc));box-shadow:0 8px 20px rgba(242,118,13,.4)}
+  .ico-btn.on .ib-lb{color:#fff}
+  .ico-btn .ib-badge{position:absolute;top:-5px;right:-5px;background:#E0431A;color:#fff;font-family:"Baloo 2";font-weight:800;font-size:10px;min-width:18px;height:18px;border-radius:999px;display:none;align-items:center;justify-content:center;padding:0 4px;box-shadow:0 2px 5px rgba(0,0,0,.3)}
+  .ico-btn{position:relative}
+  .oculto{display:none !important}
+  .mini-toast{position:absolute;left:50%;bottom:16px;transform:translateX(-50%) translateY(10px);z-index:700;background:var(--mar);color:#fff;font-weight:700;font-size:13px;padding:10px 16px;border-radius:999px;box-shadow:0 8px 20px rgba(0,0,0,.3);opacity:0;pointer-events:none;transition:opacity .25s, transform .25s;max-width:80%;text-align:center}
+  .mini-toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
   .cardapio-bolha.show{display:block}
   .cardapio-bolha .cb-tit{background:linear-gradient(180deg,var(--sol),var(--sol-esc));color:#fff;font-family:"Baloo 2";font-weight:800;font-size:14px;padding:9px 13px;display:flex;align-items:center;gap:6px}
   .cardapio-bolha .cb-seta{margin-left:auto;transition:transform .2s}
@@ -224,16 +237,27 @@
     <span id="faixaTxt"><b>Procurando o carrinho…</b></span>
     <span class="quando" id="quando"></span>
   </div>
+
+  <!-- Barra de ícones (lado esquerdo) -->
+  <div class="icon-bar" id="iconBar">
+    <button class="ico-btn" id="ibCardapio" type="button"><span class="ib-ic">🍽️</span><span class="ib-lb">Cardápio</span></button>
+    <button class="ico-btn" id="ibEsperando" type="button"><span class="ib-ic">✋</span><span class="ib-lb">Te espero</span></button>
+    <button class="ico-btn" id="ibAvisar" type="button"><span class="ib-ic">🔔</span><span class="ib-lb">Me avise</span></button>
+    <button class="ico-btn" id="ibRota" type="button"><span class="ib-ic">🧭</span><span class="ib-lb">Chegar</span></button>
+  </div>
+
   <div class="cardapio-bolha min" id="bolha" onclick="this.classList.toggle('min')">
     <div class="cb-tit">🍲 Cardápio de hoje <span class="cb-seta">▾</span></div>
     <div class="cb-body" id="cbBody"></div>
   </div>
+
+  <div class="mini-toast" id="miniToast"></div>
 </div>
 
 <div class="base">
   <div class="recado" id="recadoBox"><b>Recado</b><span id="recadoTxt"></span></div>
   <button class="btn" id="btnRota" disabled><span class="ico">🧭</span> Como chegar</button>
-  <button class="btn btn-aviso" id="btnAviso"><span class="ico">🔔</span> <span id="avisoTxt">Avisar quando estiver perto</span></button>
+  <button class="btn btn-aviso oculto" id="btnAviso"><span class="ico">🔔</span> <span id="avisoTxt">Avisar quando estiver perto</span></button>
   <div class="fechado-msg" id="fechadoMsg">O carrinho está fechado agora. Volte mais tarde 🙂</div>
 </div>
 
@@ -538,28 +562,54 @@ function checaProximidade(){
   }
 }
 const _elAviso=document.getElementById('btnAviso');
+function syncIconAvisar(){ const i=document.getElementById('ibAvisar'); if(i) i.classList.toggle('on', avisoOn); }
 if(_elAviso) _elAviso.onclick=function(){
   if(avisoOn){ // desligar
     avisoOn=false;
     if(cliWatch!=null){ navigator.geolocation.clearWatch(cliWatch); cliWatch=null; }
     this.classList.remove('on'); document.getElementById('avisoTxt').textContent='Avisar quando estiver perto';
+    syncIconAvisar();
     return;
   }
-  if(!navigator.geolocation){ alert('Seu aparelho não permite localização.'); return; }
+  if(!navigator.geolocation){ toast('Seu aparelho não permite localização.'); return; }
   // liga o som (precisa do toque do usuário)
   try{ audioCtx = audioCtx || new (window.AudioContext||window.webkitAudioContext)(); if(audioCtx.state==='suspended') audioCtx.resume(); }catch(e){}
   const bt=this;
-  document.getElementById('avisoTxt').textContent='Buscando sua localização…';
+  toast('📍 Buscando sua localização…');
   cliWatch=navigator.geolocation.watchPosition(
     p=>{
       cliPos={lat:p.coords.latitude,lng:p.coords.longitude};
-      if(!avisoOn){ avisoOn=true; bt.classList.add('on'); document.getElementById('avisoTxt').textContent='Aviso ligado — te avisamos quando chegarmos'; }
+      if(!avisoOn){ avisoOn=true; bt.classList.add('on'); document.getElementById('avisoTxt').textContent='Aviso ligado — te avisamos quando chegarmos'; syncIconAvisar(); toast('🔔 Aviso ligado! Te avisamos quando chegarmos'); }
       checaProximidade();
     },
-    err=>{ document.getElementById('avisoTxt').textContent='Precisa permitir a localização'; },
+    err=>{ document.getElementById('avisoTxt').textContent='Precisa permitir a localização'; toast('Precisa permitir a localização 🙏'); },
     {enableHighAccuracy:true,timeout:20000,maximumAge:0}
   );
 };
+
+/* ================= BARRA DE ÍCONES ================= */
+function toast(msg){
+  const t=document.getElementById('miniToast'); if(!t) return;
+  t.textContent=msg; t.classList.add('show');
+  clearTimeout(toast._t); toast._t=setTimeout(()=>t.classList.remove('show'), 3200);
+}
+// Cardápio: abre/fecha o balão
+document.getElementById('ibCardapio').onclick=()=>{
+  const b=document.getElementById('bolha');
+  if(!b.classList.contains('show')){ toast('Cardápio de hoje ainda não foi definido 🙂'); return; }
+  b.classList.toggle('min');
+  document.getElementById('ibCardapio').classList.toggle('on', !b.classList.contains('min'));
+};
+// Me avise: dispara o fluxo de proximidade que já existe
+document.getElementById('ibAvisar').onclick=()=>{ document.getElementById('btnAviso').click(); };
+// Como chegar: usa o botão de rota que já existe
+document.getElementById('ibRota').onclick=()=>{
+  const r=document.getElementById('btnRota');
+  if(r.disabled){ toast('Ainda não sabemos onde o carrinho está 🙂'); return; }
+  r.click();
+};
+// Te espero: será ativado na próxima etapa
+document.getElementById('ibEsperando').onclick=()=>{ toast('✋ "Te espero" chega já já! 🔥'); };
 
 
 /* ================= PAINEL (dono) ================= */
