@@ -528,6 +528,7 @@ function desenha(d){
   desenhaBolha(d.cardapio);
   if(painel.classList.contains('show') && document.getElementById('painelInterno').style.display==='flex'){ renderCardapio(); }
   checaProximidade();
+  atualizaChegada();
 
   // rota
   btnRota.onclick=()=>window.open('https://www.google.com/maps/dir/?api=1&destination='+d.lat+','+d.lng,'_blank');
@@ -644,6 +645,20 @@ function checaProximidade(){
     dispara(faixa);
   }
 }
+const VEL_CARRINHO=1.1; // ~4 km/h (carrinho empurrado)
+function atualizaChegada(){
+  if(!atual || atual.lat==null || !atual.aoVivo) return; // só durante o "ao vivo"
+  const faixa=document.getElementById('faixaTxt'); if(!faixa) return;
+  if(atual.aberto && cliPos){
+    const dist=distMetros(cliPos,{lat:atual.lat,lng:atual.lng});
+    if(dist>60){
+      const etaMin=Math.max(1, Math.round(dist/VEL_CARRINHO/60));
+      faixa.innerHTML='<b>🛵 Chegando em ~'+etaMin+' min até você!</b>';
+      return;
+    }
+  }
+  if(atual.aberto){ faixa.innerHTML='<b>📍 Estamos aqui agora!</b>'; }
+}
 const _elAviso=document.getElementById('btnAviso');
 function syncIconAvisar(){ const i=document.getElementById('ibAvisar'); if(i) i.classList.toggle('on', avisoOn); }
 if(_elAviso) _elAviso.onclick=function(){
@@ -664,6 +679,7 @@ if(_elAviso) _elAviso.onclick=function(){
       cliPos={lat:p.coords.latitude,lng:p.coords.longitude};
       if(!avisoOn){ avisoOn=true; bt.classList.add('on'); document.getElementById('avisoTxt').textContent='Aviso ligado — te avisamos quando chegarmos'; syncIconAvisar(); toast('🔔 Aviso ligado! Te avisamos quando chegarmos'); }
       checaProximidade();
+      atualizaChegada();
     },
     err=>{ document.getElementById('avisoTxt').textContent='Precisa permitir a localização'; toast('Precisa permitir a localização 🙏'); },
     {enableHighAccuracy:true,timeout:20000,maximumAge:0}
@@ -813,6 +829,7 @@ document.getElementById('ibEsperando').onclick=()=>{
   toast('📍 Marcando que você está esperando…');
   navigator.geolocation.getCurrentPosition(p=>{
     const lat=Math.round(p.coords.latitude*1000)/1000, lng=Math.round(p.coords.longitude*1000)/1000;
+    cliPos={lat:p.coords.latitude,lng:p.coords.longitude}; atualizaChegada();
     db.ref('esperando/'+meuIdEspera()).set({lat:lat,lng:lng,ts:Date.now()})
       .then(()=>{ euEspero=true; ib.classList.add('on'); toast('🔥 Show! O Caldeirão já sabe que você está esperando!'); })
       .catch(()=>toast('Não deu pra marcar agora 😕'));
