@@ -763,7 +763,7 @@ function renderPontos(){
   if(!PONTOS.length){ const v=document.createElement('div'); v.style.cssText='opacity:.6;font-weight:700;font-size:13px;padding:4px 2px'; v.textContent='Nenhum ponto ainda. Vá até um lugar e toque em 📍 pra marcar.'; box.appendChild(v); return; }
   PONTOS.forEach((p,i)=>{
     const row=document.createElement('div'); row.className='caldo-row on';
-    const nome=document.createElement('div'); nome.className='nome'; nome.textContent=(i+1)+'. '+p.nome; row.appendChild(nome);
+    const nome=document.createElement('div'); nome.className='nome'; nome.style.color='#fff'; nome.textContent=(i+1)+'. '+p.nome; row.appendChild(nome);
     const up=document.createElement('button'); up.type='button'; up.className='acab'; up.textContent='↑'; up.onclick=(e)=>{e.stopPropagation();movePonto(i,-1);}; row.appendChild(up);
     const dn=document.createElement('button'); dn.type='button'; dn.className='acab'; dn.textContent='↓'; dn.onclick=(e)=>{e.stopPropagation();movePonto(i,1);}; row.appendChild(dn);
     const rm=document.createElement('div'); rm.className='rm'; rm.textContent='×'; rm.onclick=(e)=>{e.stopPropagation(); const a=pontosAtuais(); a.splice(i,1); gravaPontos(a);}; row.appendChild(rm);
