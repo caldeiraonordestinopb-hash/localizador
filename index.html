@@ -465,6 +465,7 @@ let wakeLock = null;
 let euEspero = false;
 let camadaEspera = null;
 let PONTOS = [];
+let cartHist = [];
 let avisoOn=false, cliWatch=null, cliPos=null, audioCtx=null;
 let disparado={150:false,100:false,50:false};
 const painel = document.getElementById('painel');
@@ -528,6 +529,7 @@ function desenha(d){
   desenhaBolha(d.cardapio);
   if(painel.classList.contains('show') && document.getElementById('painelInterno').style.display==='flex'){ renderCardapio(); }
   checaProximidade();
+  registraVel(d);
   atualizaChegada();
 
   // rota
@@ -645,14 +647,34 @@ function checaProximidade(){
     dispara(faixa);
   }
 }
-const VEL_CARRINHO=1.1; // ~4 km/h (carrinho empurrado)
+// mede a velocidade real do carrinho pelas últimas posições (entende trator lento e paradas)
+function registraVel(d){
+  if(!d || d.lat==null) return;
+  const t=Date.now(), last=cartHist[cartHist.length-1];
+  if(last && (t-last.t)<2500) return; // no máx uma amostra a cada 2,5s
+  cartHist.push({lat:d.lat,lng:d.lng,t:t});
+  const corte=t-4*60*1000;
+  cartHist=cartHist.filter(x=>x.t>=corte);
+  if(cartHist.length>10) cartHist=cartHist.slice(-10);
+}
+function velCarrinho(){
+  if(cartHist.length<2) return null;
+  const a=cartHist[0], b=cartHist[cartHist.length-1];
+  const dt=(b.t-a.t)/1000; if(dt<8) return null; // precisa de uns segundos de amostra
+  let v=distMetros({lat:a.lat,lng:a.lng},{lat:b.lat,lng:b.lng})/dt;
+  if(v>1.45) v=1.45; // teto ~5 km/h (o trator não passa disso)
+  return v;
+}
 function atualizaChegada(){
   if(!atual || atual.lat==null || !atual.aoVivo) return; // só durante o "ao vivo"
   const faixa=document.getElementById('faixaTxt'); if(!faixa) return;
   if(atual.aberto && cliPos){
     const dist=distMetros(cliPos,{lat:atual.lat,lng:atual.lng});
     if(dist>60){
-      const etaMin=Math.max(1, Math.round(dist/VEL_CARRINHO/60));
+      const v=velCarrinho();
+      if(v==null){ faixa.innerHTML='<b>🛵 Estamos chegando até você!</b>'; return; }
+      if(v<0.35){ faixa.innerHTML='<b>⏸️ Parados atendendo — já já seguimos! 🔥</b>'; return; }
+      const etaMin=Math.max(1, Math.round(dist/v/60));
       faixa.innerHTML='<b>🛵 Chegando em ~'+etaMin+' min até você!</b>';
       return;
     }
@@ -758,6 +780,11 @@ document.getElementById('ibAvisar').onclick=()=>{ document.getElementById('btnAv
 const iconeEspera=L.divIcon({className:'',html:'<div class="pt-espera"></div>',iconSize:[16,16],iconAnchor:[8,8]});
 
 /* ---------- Pontos de referência (balão sobre o boneco) ---------- */
+function generoPadrao(nome){
+  const w=(nome||'').trim().split(/\s+/)[0].toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  return w.endsWith('a') ? 'na' : 'no';
+}
+function genDe(p){ return (p && (p.genero==='na'||p.genero==='no')) ? p.genero : generoPadrao(p&&p.nome); }
 function baloRef(d){
   const el=marcador&&marcador.getElement&&marcador.getElement(); if(!el) return;
   const balao=el.querySelector('.ref-balao'); if(!balao) return;
@@ -766,12 +793,12 @@ function baloRef(d){
   PONTOS.forEach((p,i)=>{ if(p && typeof p.lat==='number'){ const dd=distMetros({lat:d.lat,lng:d.lng},{lat:p.lat,lng:p.lng}); if(dd<melhor){ melhor=dd; idx=i; } } });
   if(idx<0){ balao.style.display='none'; return; }
   balao.innerHTML='';
-  const b=document.createElement('b'); b.textContent='📍 Estamos no '+PONTOS[idx].nome; balao.appendChild(b);
+  const b=document.createElement('b'); b.textContent='📍 Estamos '+genDe(PONTOS[idx])+' '+PONTOS[idx].nome; balao.appendChild(b);
   const prox=PONTOS[idx+1];
-  if(prox){ const s=document.createElement('span'); s.textContent='➡️ já já no '+prox.nome; balao.appendChild(s); }
+  if(prox){ const s=document.createElement('span'); s.textContent='➡️ já já '+genDe(prox)+' '+prox.nome; balao.appendChild(s); }
   balao.style.display='block';
 }
-function pontosAtuais(){ return PONTOS.map(p=>({nome:p.nome,lat:p.lat,lng:p.lng})); }
+function pontosAtuais(){ return PONTOS.map(p=>({nome:p.nome,lat:p.lat,lng:p.lng,genero:genDe(p)})); }
 function gravaPontos(a){ if(DEMO){ PONTOS=a; renderPontos(); return; } db.ref('pontos').set(a).catch(()=>toast('Erro ao salvar ponto')); }
 function movePonto(i,dir){ const a=pontosAtuais(); const j=i+dir; if(j<0||j>=a.length) return; const t=a[i]; a[i]=a[j]; a[j]=t; gravaPontos(a); }
 function renderPontos(){
@@ -780,6 +807,7 @@ function renderPontos(){
   PONTOS.forEach((p,i)=>{
     const row=document.createElement('div'); row.className='caldo-row on';
     const nome=document.createElement('div'); nome.className='nome'; nome.style.color='#fff'; nome.textContent=(i+1)+'. '+p.nome; row.appendChild(nome);
+    const gen=document.createElement('button'); gen.type='button'; gen.className='acab amarelo'; gen.textContent=genDe(p); gen.title='no / na'; gen.onclick=(e)=>{e.stopPropagation(); const a=pontosAtuais(); a[i].genero=(genDe(a[i])==='na'?'no':'na'); gravaPontos(a);}; row.appendChild(gen);
     const up=document.createElement('button'); up.type='button'; up.className='acab'; up.textContent='↑'; up.onclick=(e)=>{e.stopPropagation();movePonto(i,-1);}; row.appendChild(up);
     const dn=document.createElement('button'); dn.type='button'; dn.className='acab'; dn.textContent='↓'; dn.onclick=(e)=>{e.stopPropagation();movePonto(i,1);}; row.appendChild(dn);
     const rm=document.createElement('div'); rm.className='rm'; rm.textContent='×'; rm.onclick=(e)=>{e.stopPropagation(); const a=pontosAtuais(); a.splice(i,1); gravaPontos(a);}; row.appendChild(rm);
@@ -792,7 +820,7 @@ document.getElementById('btnAddPonto').onclick=()=>{
   if(!navigator.geolocation){ toast('Seu aparelho não permite localização.'); return; }
   document.getElementById('pontoStatus').textContent='📍 Marcando a localização atual…';
   navigator.geolocation.getCurrentPosition(p=>{
-    const a=pontosAtuais(); a.push({nome:nome, lat:Math.round(p.coords.latitude*1e5)/1e5, lng:Math.round(p.coords.longitude*1e5)/1e5});
+    const a=pontosAtuais(); a.push({nome:nome, lat:Math.round(p.coords.latitude*1e5)/1e5, lng:Math.round(p.coords.longitude*1e5)/1e5, genero:generoPadrao(nome)});
     inp.value=''; document.getElementById('pontoStatus').textContent=''; gravaPontos(a); toast('📍 Ponto "'+nome+'" salvo!');
   }, err=>{ document.getElementById('pontoStatus').textContent='Precisa permitir a localização 🙏'; }, {enableHighAccuracy:true,timeout:20000,maximumAge:0});
 };
