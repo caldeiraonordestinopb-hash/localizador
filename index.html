@@ -788,6 +788,14 @@ function genDe(p){ return (p && (p.genero==='na'||p.genero==='no')) ? p.genero :
 function baloRef(d){
   const el=marcador&&marcador.getElement&&marcador.getElement(); if(!el) return;
   const balao=el.querySelector('.ref-balao'); if(!balao) return;
+  // Fechado: mostra o recado sobre o boneco, em qualquer lugar
+  if(d && d.aberto===false){
+    balao.innerHTML='';
+    const b=document.createElement('b'); b.textContent='😴 Fechados por hoje';
+    const s=document.createElement('span'); s.textContent='Nos vemos em breve! 🧡🔥';
+    balao.appendChild(b); balao.appendChild(s);
+    balao.style.display='block'; return;
+  }
   if(!PONTOS.length || !d || d.lat==null){ balao.style.display='none'; return; }
   let idx=-1, melhor=150;
   PONTOS.forEach((p,i)=>{ if(p && typeof p.lat==='number'){ const dd=distMetros({lat:d.lat,lng:d.lng},{lat:p.lat,lng:p.lng}); if(dd<melhor){ melhor=dd; idx=i; } } });
